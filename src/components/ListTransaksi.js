@@ -1,69 +1,71 @@
 import React from 'react';
 
 function ListTransaksi({ data, onHapus }) {
-  // 1. TAMPILAN JIKA DATA SEDANG KOSONG
+  // Tampilan jika data kosong
   if (!data || data.length === 0) {
     return (
-      <div className="relative overflow-hidden bg-slate-900/20 border-2 border-dashed border-slate-800 rounded-[2.5rem] p-12 flex flex-col items-center justify-center group">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-indigo-500/5 rounded-full animate-ping"></div>
-        </div>
-
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="text-5xl mb-4 grayscale opacity-50">📡</div>
-          <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">
-            No Data Packets Found
-          </h3>
-          <p className="text-[10px] text-slate-600 mt-2 font-bold uppercase tracking-widest">
-            Waiting for incoming data stream...
-          </p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <div className="text-5xl mb-4 opacity-20">📝</div>
+        <h4 className="text-slate-800 font-bold uppercase text-[10px] tracking-[0.2em]">Belum Ada Data</h4>
+        <p className="text-slate-400 text-xs mt-1 max-w-[200px]">Silahkan masukkan transaksi pertama Anda di atas.</p>
       </div>
     );
   }
 
-  // 2. TAMPILAN JIKA ADA DATA
   return (
-    <div className="space-y-4">
-      {data.map((item) => (
-        <div 
-          key={item.id} 
-          className="group relative bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex justify-between items-center hover:border-indigo-500/50 transition-all duration-300"
-        >
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 group-hover:h-8 bg-indigo-500 transition-all duration-300 rounded-r-full"></div>
+    <div className="overflow-hidden">
+      {/* HEADER LIST (Hanya muncul di desktop) */}
+      <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="col-span-5">Barang</div>
+        <div className="col-span-2 text-center">Jumlah</div>
+        <div className="col-span-3 text-right">Subtotal</div>
+        <div className="col-span-2 text-right">Aksi</div>
+      </div>
 
-          <div className="flex flex-col ml-2">
-            {/* PASTIKAN NAMA FIELD SESUAI: namaBarang */}
-            <span className="text-xs font-black text-white tracking-widest uppercase mb-1">
-              {item.namaBarang || "Unknown Item"}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-slate-950 text-[9px] font-bold text-emerald-500 rounded-md border border-slate-800 uppercase">
-                {item.jumlah || 0} Unit
+      {/* BODY LIST */}
+      <div className="divide-y divide-slate-50">
+        {data.map((item) => (
+          <div 
+            key={item.id} 
+            className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 px-4 md:px-6 py-4 items-center hover:bg-slate-50/50 transition-colors group"
+          >
+            {/* Nama Barang & Info di Mobile */}
+            <div className="col-span-1 md:col-span-5 flex flex-col">
+              <span className="text-sm font-bold text-slate-700 leading-tight">
+                {item.namaBarang}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">
-                @ Rp{(item.harga || 0).toLocaleString()}
+              <span className="md:hidden text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">
+                Rp {item.harga?.toLocaleString('id-ID')} × {item.jumlah} item
               </span>
             </div>
-          </div>
 
-          <div className="flex items-center gap-5">
-            <div className="text-right">
-              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter mb-0.5 opacity-70">Subtotal</p>
-              <p className="text-sm font-black text-white font-mono">
-                Rp{(item.total || 0).toLocaleString()}
-              </p>
+            {/* Jumlah (Desktop Only) */}
+            <div className="hidden md:block col-span-2 text-center">
+              <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[11px] font-black">
+                {item.jumlah}
+              </span>
             </div>
-            
-            <button
-              onClick={() => onHapus(item.id)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/5 text-red-500 border border-red-500/20 md:opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-red-500 hover:text-white"
-            >
-              <span className="text-lg">×</span>
-            </button>
+
+            {/* Subtotal */}
+            <div className="col-span-1 md:col-span-3 text-left md:text-right">
+              <span className="text-sm font-black text-[#2D8B73]">
+                Rp {item.total?.toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            {/* Tombol Hapus */}
+            <div className="col-span-1 md:col-span-2 text-right">
+              <button
+                onClick={() => onHapus(item.id)}
+                className="w-full md:w-auto p-2 md:p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <span className="text-sm md:text-base">🗑️</span>
+                <span className="md:hidden text-[10px] font-black uppercase">Hapus Transaksi</span>
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

@@ -17,89 +17,121 @@ function Login({ onSwitch }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     
-    // Validasi Dasar
     if (!email || !password) {
-      alert("Protokol Ditolak: Kredensial tidak lengkap!");
+      alert("Protokol Gagal: Email dan Password wajib diisi!");
       return;
     }
 
     setLoading(true);
     try {
-      // 1. Atur Persistence (Sesuai pilihan Remember Me)
+      // Mengatur persistensi login (Ingat Saya)
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       
-      // 2. Eksekusi Login
+      // Eksekusi Login
       await signInWithEmailAndPassword(auth, email, password);
       
-      // INFO: Kamu tidak perlu memanggil fungsi navigasi manual di sini.
-      // Jika di App.js sudah ada onAuthStateChanged, Dashboard akan otomatis muncul.
-      console.log("Login Berhasil: Mengalihkan ke Dashboard...");
-      
     } catch (err) {
-      // GAGAL: Tetap di halaman login dan tampilkan pesan error
+      // Menangani Eror Spesifik dari Firebase
       console.error("Login Error Code:", err.code);
       
-      let errorMessage = "Kegagalan Sistem: Terjadi kesalahan tidak dikenal.";
-      
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        errorMessage = "Akses Ditolak: Email atau Password tidak terdaftar dalam database.";
-      } else if (err.code === 'auth/too-many-requests') {
-        errorMessage = "Keamanan: Terlalu banyak percobaan. Akun dibekukan sementara.";
-      } else if (err.code === 'auth/network-request-failed') {
-        errorMessage = "Koneksi Terputus: Periksa jaringan satelit Anda.";
+      switch (err.code) {
+        case 'auth/invalid-email':
+          alert("Gagal: Format email yang Anda masukkan tidak valid.");
+          break;
+        case 'auth/user-not-found':
+          alert("Gagal: Akun tidak ditemukan. Silakan daftar terlebih dahulu.");
+          break;
+        case 'auth/wrong-password':
+          alert("Gagal: Kata sandi yang Anda masukkan salah.");
+          break;
+        case 'auth/invalid-credential':
+          alert("Gagal: Email atau kata sandi tidak sesuai.");
+          break;
+        case 'auth/too-many-requests':
+          alert("Sistem Terkunci: Terlalu banyak percobaan gagal. Coba lagi nanti.");
+          break;
+        case 'auth/user-disabled':
+          alert("Akses Ditolak: Akun ini telah dinonaktifkan.");
+          break;
+        default:
+          alert("Sistem Error: " + err.message);
       }
-
-      alert(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f172a] p-4 font-sans antialiased text-slate-200">
+    <div className="flex min-h-screen bg-white font-sans antialiased overflow-hidden">
       
-      {/* Background Decor - Cyber Ambient */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10">
-        <div className="absolute top-[-5%] right-[-5%] w-[45%] h-[45%] bg-emerald-600/10 blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-5%] left-[-5%] w-[45%] h-[45%] bg-indigo-600/10 blur-[120px] animate-pulse delay-700"></div>
+      {/* SISI KIRI: BRANDING */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-white items-center justify-center">
+        <div className="absolute top-0 left-0 w-full h-full">
+           <div className="absolute top-[10%] left-[10%] w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-60"></div>
+           <div className="absolute bottom-[10%] right-[10%] w-80 h-80 bg-emerald-100 rounded-full blur-3xl opacity-40"></div>
+        </div>
+
+        <div className="absolute left-0 top-0 bottom-0 w-[90%] bg-[#2d5a4c] rounded-r-[100px] shadow-2xl z-0"></div>
+
+        <div className="relative z-10 text-center text-white px-12">
+          <div className="mb-8">
+             <div className="w-32 h-32 bg-white rounded-full shadow-2xl flex items-center justify-center mx-auto mb-6 border-4 border-emerald-500/20 transition-transform hover:rotate-6 duration-500">
+                <span className="text-6xl">🛒</span>
+             </div>
+             <h1 className="text-5xl font-black tracking-tighter text-white">
+                FEB <span className="text-[#ecb12a]">MART</span>
+             </h1>
+             <div className="h-1 w-20 bg-[#ecb12a] mx-auto mt-4 rounded-full"></div>
+             <p className="text-emerald-50/80 mt-6 text-lg font-medium italic">
+               "Solusi Belanja Kebutuhan Harian Anda"
+             </p>
+          </div>
+          
+          <div className="mt-12 opacity-90 grayscale-[0.2]">
+            <svg className="w-48 h-48 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="white"/>
+               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="white"/>
+               <line x1="8" y1="6" x2="16" y2="6" stroke="#ecb12a" strokeWidth="2"/>
+               <line x1="8" y1="10" x2="16" y2="10" stroke="white"/>
+               <line x1="8" y1="14" x2="16" y2="14" stroke="white"/>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      <div className="w-full max-w-sm group">
-        <div className="bg-slate-900/40 backdrop-blur-2xl p-8 rounded-[2.5rem] shadow-2xl border border-slate-800 transition-all duration-500 hover:border-emerald-500/40 hover:shadow-emerald-500/10">
-          
-          <header className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-2xl shadow-emerald-500/30 mb-5 relative overflow-hidden group-hover:rotate-6 transition-transform duration-500">
-              <span className="text-4xl z-10">🏪</span>
-              <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
-            </div>
-            <h2 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-emerald-100 to-slate-500 tracking-tighter">
-              User Login
-            </h2>
-            <p className="text-[10px] text-emerald-400 mt-2 uppercase tracking-[0.3em] font-black opacity-70">
-              Secure Terminal Access
-            </p>
-          </header>
+      {/* SISI KANAN: FORM LOGIN */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white relative">
+        <div className="w-full max-w-md">
+          <div className="mb-12 text-center lg:text-left">
+            <div className="h-1.5 w-12 bg-[#ecb12a] mb-4 mx-auto lg:mx-0 rounded-full"></div>
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-widest">Login</h2>
+            <p className="text-slate-500 mt-2 font-medium">Silakan masuk menggunakan akun terdaftar</p>
+          </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500 ml-2 tracking-widest">User Identification</label>
-              <input 
-                type="email" 
-                placeholder="id_user@network.com" 
-                className="w-full p-4 bg-slate-950/60 border border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300 text-slate-200 placeholder:text-slate-700 text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div className="space-y-3">
+              <label className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] ml-1">Username / Email</label>
+              <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#2d5a4c] transition-colors">👤</span>
+                <input 
+                  type="email" 
+                  placeholder="Masukkan email Anda" 
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-[#2d5a4c] focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-300 shadow-sm"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-slate-500 ml-2 tracking-widest">Security Token</label>
-              <div className="relative">
+            <div className="space-y-3">
+              <label className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] ml-1">Password</label>
+              <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#2d5a4c] transition-colors">🔑</span>
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  placeholder="••••••••" 
-                  className="w-full p-4 bg-slate-950/60 border border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300 text-slate-200 placeholder:text-slate-700 font-mono text-sm"
+                  placeholder="Masukkan kata sandi" 
+                  className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-[#2d5a4c] focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-300 shadow-sm"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -107,57 +139,53 @@ function Login({ onSwitch }) {
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-4 text-slate-600 hover:text-emerald-400 transition-colors focus:outline-none"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#2d5a4c] transition-colors"
                 >
-                  {showPassword ? "🔓" : "🔒"}
+                  {showPassword ? "🔒" : "👁️"}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center px-2">
-              <label className="flex items-center text-[11px] cursor-pointer select-none group/check text-slate-500 hover:text-emerald-400 transition-colors">
+            <div className="flex items-center justify-between px-1">
+              <label className="flex items-center text-sm cursor-pointer select-none group">
                 <input 
                   type="checkbox" 
                   className="hidden"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-emerald-600 border-emerald-600' : 'border-slate-700 bg-slate-950'}`}>
-                  {rememberMe && <span className="text-[10px] text-white">✓</span>}
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${rememberMe ? 'bg-[#ecb12a] border-[#ecb12a]' : 'border-slate-200 bg-white'}`}>
+                  {rememberMe && <span className="text-[10px] text-white font-bold">✓</span>}
                 </div>
-                <span className="ml-2 font-bold uppercase tracking-tighter">Persistent Session</span>
+                <span className="ml-2 font-bold text-slate-500 group-hover:text-slate-800 transition-colors">Ingat Saya</span>
               </label>
+              <button type="button" className="text-sm font-bold text-[#ecb12a] hover:text-[#d9a021] transition-colors">Lupa Password?</button>
             </div>
 
             <button 
               type="submit"
               disabled={loading}
-              className={`w-full py-4 rounded-2xl font-black tracking-widest uppercase shadow-2xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-3 overflow-hidden group/btn ${
+              className={`w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-yellow-500/20 transition-all active:scale-95 flex items-center justify-center gap-3 ${
                 loading 
-                ? "bg-slate-800 text-slate-500 cursor-not-allowed" 
-                : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:shadow-emerald-500/40 text-white"
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                : "bg-[#ecb12a] hover:bg-[#f3bc3a] text-white"
               }`}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <span className="flex items-center gap-2">
-                  Execute Login <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
-                </span>
-              )}
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : "MASUK"}
             </button>
           </form>
 
-          <footer className="mt-10 pt-6 border-t border-slate-800/50 text-center">
-            <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tight">System: No account detected?</p>
+          <div className="mt-12 text-center">
+            <p className="text-slate-400 font-medium">Belum punya akun?</p>
             <button 
-              type="button"
               onClick={onSwitch}
-              className="mt-2 text-emerald-400 font-black hover:text-white transition-all uppercase text-xs tracking-widest py-2 px-4 rounded-lg hover:bg-emerald-500/10"
+              className="mt-2 text-[#2d5a4c] font-black hover:underline transition-all uppercase text-sm tracking-widest"
             >
-              Initialize Registration
+              Daftar Sekarang
             </button>
-          </footer>
+          </div>
         </div>
       </div>
     </div>
