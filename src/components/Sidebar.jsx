@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { FiHome, FiShoppingCart, FiBox, FiBarChart2, FiSettings, FiUser } from "react-icons/fi"; // Tambah FiUser untuk fallback
+import { FiHome, FiShoppingCart, FiBox, FiBarChart2, FiSettings, FiUser } from "react-icons/fi";
 import { FaStore } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -8,13 +8,34 @@ function Sidebar() {
   const location = useLocation();
   const [profileImage, setProfileImage] = useState(null);
 
-  // Ambil foto profil dari localStorage saat komponen mount
-  useEffect(() => {
+  // --- LOGIKA SYNC FOTO PROFIL ---
+  const updateProfileImage = () => {
     const savedImage = localStorage.getItem("warung_profile_image");
-    if (savedImage) {
-      setProfileImage(savedImage);
-    }
-  }, [location]); // Re-check setiap pindah halaman agar foto terupdate jika baru diganti
+    // Jika string kosong atau null, set ke null agar icon user muncul
+    setProfileImage(savedImage && savedImage !== "" ? savedImage : null);
+  };
+
+  useEffect(() => {
+    // 1. Ambil data saat pertama kali load
+    updateProfileImage();
+
+    // 2. Dengar perubahan dari localStorage (Antar tab/halaman)
+    const handleStorageChange = () => {
+      updateProfileImage();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    
+    // Cleanup listener saat komponen mati
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  // Memastikan update saat navigasi (opsional tambahan)
+  useEffect(() => {
+    updateProfileImage();
+  }, [location]);
 
   const menuItems = [
     { id: "dashboard", path: "/dashboard", icon: <FiHome />, label: "Dashboard" },
@@ -37,10 +58,12 @@ function Sidebar() {
           </h1>
         </div>
 
-        {/* --- BAGIAN FOTO PROFIL --- */}
-        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-md overflow-hidden flex items-center justify-center">
+        {/* FOTO PROFIL MOBILE */}
+        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-md overflow-hidden flex items-center justify-center transition-all duration-500">
           {profileImage ? (
-            <img 
+            <motion.img 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
               src={profileImage} 
               alt="Profile" 
               className="w-full h-full object-cover"
@@ -79,12 +102,18 @@ function Sidebar() {
           ))}
         </nav>
         
-        {/* Opsional: Tampilkan foto profil juga di bawah sidebar desktop */}
-        <div className="mt-auto mb-4 w-10 h-10 rounded-full border-2 border-slate-100 dark:border-slate-800 overflow-hidden bg-slate-50 flex items-center justify-center">
+        {/* FOTO PROFIL DESKTOP (Bawah Sidebar) */}
+        <div className="mt-auto mb-4 w-12 h-12 rounded-2xl border-2 border-slate-100 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-800 flex items-center justify-center transition-all duration-500 shadow-inner">
             {profileImage ? (
-                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                <motion.img 
+                  initial={{ scale: 0.8 }} 
+                  animate={{ scale: 1 }}
+                  src={profileImage} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover" 
+                />
             ) : (
-                <FiUser className="text-slate-300" />
+                <FiUser className="text-slate-300 dark:text-slate-600" size={20} />
             )}
         </div>
       </aside>

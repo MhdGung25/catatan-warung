@@ -18,6 +18,12 @@ function ReportsPage() {
   });
   const [loading, setLoading] = useState(true);
 
+  // 1. FIX: AUTO SCROLL KE ATAS SAAT HALAMAN DIBUKA/DI-REFRESH
+  // Ini memastikan user selalu melihat bagian atas halaman saat navigasi.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   const calculateRealData = () => {
     const savedTrx = JSON.parse(localStorage.getItem("warung_transactions") || "[]");
     
@@ -43,6 +49,7 @@ function ReportsPage() {
     const loadData = () => {
       setLoading(true);
       calculateRealData();
+      // Delay sedikit untuk memberi kesan loading yang smooth
       setTimeout(() => setLoading(false), 600);
     };
 
@@ -52,11 +59,14 @@ function ReportsPage() {
   }, []);
 
   return (
-    // Tambahkan pb-32 agar konten tidak mentok ke navigasi bawah di HP
-    <div className="p-4 md:p-8 min-h-screen bg-slate-50/50 dark:bg-[#0f172a] transition-all font-sans pb-32 md:pb-12">
+    /* PENTING: 
+       - pt-28 (Desktop) & pt-24 (Mobile) menjaga konten tetap di bawah navbar yang fixed.
+       - pb-40 (Mobile) memberikan ruang agar konten tidak tertutup navigasi bawah/footer.
+    */
+    <div className="pt-24 md:pt-28 p-4 md:p-8 min-h-screen bg-slate-50/50 dark:bg-[#0f172a] transition-all font-sans pb-40 md:pb-20">
       
       {/* HEADER SECTION */}
-      <div className="flex items-center justify-between mb-8 mt-6 md:mt-0">
+      <div className="flex items-center justify-between mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
         <div>
           <h1 className="text-3xl md:text-4xl font-black text-[#1B2559] dark:text-white tracking-tight">
             Laporan
@@ -122,7 +132,7 @@ function ReportsPage() {
                 {stats.totalProductsSold} <span className="text-sm font-bold text-slate-400">Pcs</span>
               </h2>
               <div className="mt-4 h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 rounded-full" style={{ width: '70%' }} />
+                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${stats.totalProductsSold > 0 ? '70%' : '0%'}` }} />
               </div>
             </div>
           </>
@@ -132,7 +142,7 @@ function ReportsPage() {
       {/* ANALISIS VISUAL */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
         
-        {/* Grafik Visual */}
+        {/* Grafik Visual (Dinamis) */}
         <div className="p-8 bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="flex justify-between items-center mb-8">
             <h3 className="font-black text-slate-800 dark:text-white uppercase text-[10px] tracking-[0.2em]">Estimasi Performa</h3>
@@ -153,7 +163,7 @@ function ReportsPage() {
           </div>
         </div>
 
-        {/* Ringkasan & Server Status */}
+        {/* Health Check & Status */}
         <div className="flex flex-col gap-6">
           <div className="p-8 bg-[#1B2559] dark:bg-indigo-950 rounded-[40px] text-white flex flex-col justify-center shadow-xl shadow-indigo-100 dark:shadow-none h-full transition-transform active:scale-[0.98]">
             <h3 className="font-bold text-indigo-300 uppercase text-[9px] tracking-widest mb-3">Health Check</h3>
