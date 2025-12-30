@@ -3,7 +3,8 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-} from "firebase/auth"; // Menghapus signInWithRedirect yang tidak terpakai
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { auth } from "../firebase/config";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
@@ -15,6 +16,7 @@ import {
   FiEyeOff,
   FiAlertCircle,
   FiUserPlus,
+  FiCheckCircle,
 } from "react-icons/fi";
 
 const googleProvider = new GoogleAuthProvider();
@@ -30,8 +32,9 @@ export default function Login({ onSwitch }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  /* ================= REMEMBER EMAIL ================= */
+  /* ================= EFÈK INGAT EMAIL ================= */
   useEffect(() => {
     const savedEmail = localStorage.getItem("warung_email");
     if (savedEmail) {
@@ -40,31 +43,57 @@ export default function Login({ onSwitch }) {
     }
   }, []);
 
+  /* ================= LOGIKA RESET SANDI (KE GMAIL) ================= */
+  const handleForgotPassword = async () => {
+    // Validasi: Input email tidak boleh kosong
+    if (!email) {
+      setError("Ketik alamat email Anda di atas untuk mereset sandi.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      // Mengirim link reset sandi ke email yang terdaftar di Firebase
+      await sendPasswordResetEmail(auth, email.trim());
+      
+      setSuccessMsg("Link reset sandi telah dikirim! Silakan periksa kotak masuk atau spam di Gmail Anda.");
+      
+      // Memberi instruksi tambahan kepada user
+      setTimeout(() => {
+        alert("Instruksi: Buka Gmail Anda, klik link dari Firebase, lalu buat sandi baru. Setelah itu silakan login kembali di sini.");
+      }, 500);
+
+    } catch (err) {
+      console.error(err.code);
+      if (err.code === "auth/user-not-found") {
+        setError("Email ini belum terdaftar di sistem kami.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Format penulisan email salah.");
+      } else {
+        setError("Terlalu banyak permintaan. Coba lagi nanti.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* ================= GOOGLE LOGIN ================= */
   const handleGoogleLogin = async () => {
     if (googleLoading) return;
     setGoogleLoading(true);
     setError("");
+    setSuccessMsg("");
 
     try {
-      // Menggunakan Popup (Pastikan Authorized Domains di Firebase sudah ada localhost)
       const result = await signInWithPopup(auth, googleProvider);
-      
       if (result.user) {
-        // Navigasi ditaruh di dalam sini agar hanya jalan jika login sukses
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      console.error("Firebase Error Code:", err.code);
-      if (err.code === "auth/operation-not-allowed") {
-        setError("Login Google belum diaktifkan di Firebase Console.");
-      } else if (err.code === "auth/popup-closed-by-user") {
-        setError("Jendela login ditutup sebelum selesai.");
-      } else if (err.code === "auth/cancelled-popup-request") {
-        setError("Proses login sedang berjalan di jendela lain.");
-      } else {
-        setError("Gagal masuk dengan Google. Coba lagi.");
-      }
+      setError("Gagal masuk dengan Google.");
     } finally {
       setGoogleLoading(false);
     }
@@ -77,14 +106,10 @@ export default function Login({ onSwitch }) {
 
     setLoading(true);
     setError("");
+    setSuccessMsg("");
 
     try {
-      const res = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-
+      const res = await signInWithEmailAndPassword(auth, email.trim(), password);
       if (res.user) {
         if (rememberMe) {
           localStorage.setItem("warung_email", email);
@@ -94,131 +119,143 @@ export default function Login({ onSwitch }) {
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      if (err.code === "auth/invalid-credential") {
-        setError("Email atau password salah.");
-      } else {
-        setError("Terjadi kesalahan teknis. Cek koneksi Anda.");
-      }
+      setError("Email atau sandi salah. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-700 to-pink-600 p-4 font-sans">
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 border border-slate-50 animate-in fade-in zoom-in duration-500">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 font-sans relative overflow-hidden">
+      {/* Animasi Background */}
+      <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-emerald-500/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-[-10%] left-[-10%] w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"></div>
 
-        {/* LOGO / BRAND */}
+      <div className="w-full max-w-md bg-white dark:bg-[#1e293b] rounded-[2.5rem] shadow-2xl p-6 md:p-10 border border-slate-100 dark:border-slate-800 z-10 transition-all duration-300">
+
+        {/* HEADER */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-inner">
-            <LuStore size={44} />
+          <div className="w-16 h-16 md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+            <LuStore size={40} />
           </div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            Warung Digital
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white">
+            Warung <span className="text-emerald-500">Digital</span>
           </h1>
-          <p className="text-slate-400 text-sm font-medium mt-1">
-            Kelola usaha lebih mudah & aman
+          <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mt-1">
+            Sistem Kasir Pintar
           </p>
         </div>
 
-        {/* ERROR BOX */}
+        {/* NOTIFIKASI */}
         {error && (
-          <div className="flex items-center gap-3 bg-red-50 text-red-600 px-4 py-4 rounded-2xl mb-6 text-xs font-bold border border-red-100 animate-pulse">
-            <FiAlertCircle size={18} className="shrink-0" />
-            {error}
+          <div className="flex items-start gap-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 px-4 py-3 rounded-2xl mb-6 text-[11px] font-bold border border-red-100 dark:border-red-500/20 animate-bounce">
+            <FiAlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+        {successMsg && (
+          <div className="flex items-start gap-3 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-3 rounded-2xl mb-6 text-[11px] font-bold border border-emerald-100 dark:border-emerald-500/20">
+            <FiCheckCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{successMsg}</span>
           </div>
         )}
 
-        {/* GOOGLE LOGIN BUTTON */}
+        {/* LOGIN GOOGLE */}
         <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={googleLoading}
-          className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-sm mb-6 transition-all active:scale-95 border-2
-            ${
-              googleLoading
-                ? "bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed"
-                : "bg-white text-slate-700 border-slate-100 hover:border-indigo-200 hover:bg-slate-50 shadow-sm"
-            }`}
+          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-xs mb-6 transition-all active:scale-95 border-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-100 dark:border-slate-700 hover:border-emerald-200"
         >
-          <FcGoogle className="text-2xl" />
-          {googleLoading ? "MEMPROSES..." : "MASUK DENGAN GOOGLE"}
+          {googleLoading ? (
+            <div className="w-5 h-5 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin"></div>
+          ) : (
+            <><FcGoogle size={22} /> MASUK DENGAN GOOGLE</>
+          )}
         </button>
 
         <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px bg-slate-100" />
-          <span className="text-[10px] font-black text-slate-300 tracking-[0.2em]">ATAU EMAIL</span>
-          <div className="flex-1 h-px bg-slate-100" />
+          <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+          <span className="text-[10px] font-black text-slate-300 dark:text-slate-600 tracking-widest">ATAU</span>
+          <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
         </div>
 
-        {/* FORM LOGIN */}
+        {/* FORM UTAMA */}
         <form onSubmit={handleLogin} className="space-y-4">
-          <div className="flex items-center gap-3 bg-slate-50 px-4 rounded-2xl border-2 border-transparent focus-within:border-indigo-500 focus-within:bg-white transition-all shadow-sm">
-            <FiMail className="text-slate-400 text-lg" />
+          {/* Input Email */}
+          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 px-4 rounded-2xl border-2 border-transparent focus-within:border-emerald-500 focus-within:bg-white dark:focus-within:bg-slate-900 transition-all">
+            <FiMail className="text-slate-400" size={18} />
             <input
               type="email"
-              placeholder="email@warung.com"
+              placeholder="Alamat Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full py-4 bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-300 text-sm"
+              className="w-full py-4 bg-transparent outline-none font-bold text-slate-700 dark:text-white text-sm"
               required
             />
           </div>
 
-          <div className="flex items-center gap-3 bg-slate-50 px-4 rounded-2xl border-2 border-transparent focus-within:border-indigo-500 focus-within:bg-white transition-all shadow-sm">
-            <FiLock className="text-slate-400 text-lg" />
+          {/* Input Password */}
+          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 px-4 rounded-2xl border-2 border-transparent focus-within:border-emerald-500 focus-within:bg-white dark:focus-within:bg-slate-900 transition-all">
+            <FiLock className="text-slate-400" size={18} />
             <input
               type={showPass ? "text" : "password"}
-              placeholder="Password Anda"
+              placeholder="Kata Sandi"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full py-4 bg-transparent outline-none font-bold text-slate-700 placeholder:text-slate-300 text-sm"
-              required
+              className="w-full py-4 bg-transparent outline-none font-bold text-slate-700 dark:text-white text-sm"
+              required={!loading}
             />
             <button
               type="button"
               onClick={() => setShowPass(!showPass)}
-              className="text-slate-400 hover:text-indigo-600 transition-colors"
+              className="text-slate-400 hover:text-emerald-500"
             >
-              {showPass ? <FiEyeOff size={20} /> : <FiEye size={20} />}
+              {showPass ? <FiEyeOff size={18} /> : <FiEye size={18} />}
             </button>
           </div>
 
-          <div className="flex items-center justify-between px-1 pt-1">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-400 cursor-pointer uppercase tracking-tighter">
+          {/* Navigasi Kecil */}
+          <div className="flex items-center justify-between px-1">
+            <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 cursor-pointer uppercase">
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
               Ingat saya
             </label>
+            <button 
+              type="button" 
+              onClick={handleForgotPassword}
+              className="text-[10px] font-black text-emerald-500 uppercase hover:underline"
+            >
+              Lupa Sandi?
+            </button>
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-4 rounded-2xl font-black text-white tracking-widest transition-all shadow-lg mt-2
-              ${
-                loading
-                  ? "bg-slate-400 cursor-wait"
-                  : "bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-indigo-200"
-              }`}
+            className={`w-full py-4 rounded-2xl font-black text-white tracking-widest transition-all shadow-lg mt-2 text-xs
+              ${loading ? "bg-slate-400 cursor-wait" : "bg-emerald-500 hover:bg-emerald-600 active:scale-95 shadow-emerald-200/50"}`}
           >
-            {loading ? "MENCOCOKKAN DATA..." : "MASUK KE WARUNG"}
+            {loading ? "PROSES..." : "MASUK KE APLIKASI"}
           </button>
         </form>
 
-        <div className="mt-8 text-center border-t border-slate-50 pt-6">
-          <p className="text-slate-400 text-sm font-medium">
-            Belum punya akun?{" "}
+        {/* Footer Link */}
+        <div className="mt-8 text-center border-t border-slate-50 dark:border-slate-800 pt-6">
+          <p className="text-slate-400 text-[11px] font-bold">
+            BELUM PUNYA AKUN?{" "}
             <button 
               type="button"
               onClick={onSwitch} 
-              className="text-indigo-600 font-extrabold hover:underline inline-flex items-center gap-1"
+              className="text-emerald-500 font-black hover:underline uppercase ml-1"
             >
-              Daftar Sekarang <FiUserPlus />
+              Daftar Sekarang <FiUserPlus className="inline ml-1" />
             </button>
           </p>
         </div>

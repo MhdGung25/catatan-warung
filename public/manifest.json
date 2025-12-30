@@ -1,6 +1,6 @@
 {
-  "short_name": "Warung",
-  "name": "Catatan Warung Digital",
+  "short_name": "WarungDigital",
+  "name": "Warung Digital - Kasir Pintar",
   "icons": [
     {
       "src": "favicon.ico",
@@ -11,17 +11,17 @@
       "src": "logo192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#020617",
-  "background_color": "#020617"
+  "theme_color": "#10b981", 
+  "background_color": "#0f172a"
 }
