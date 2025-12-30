@@ -18,12 +18,12 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isCropping, setIsCropping] = useState(false); // State baru untuk mendeteksi mode edit foto
+  const [isCropping, setIsCropping] = useState(false); 
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 1. Memantau status login Firebase
+  // 1. Sinkronisasi Login Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -32,7 +32,7 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Sinkronisasi Dark Mode dengan Class HTML
+  // 2. Sinkronisasi Dark Mode
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -41,23 +41,25 @@ function App() {
     }
   }, [darkMode]);
 
-  // Fungsi Logout
+  // 3. Reset UI saat pindah halaman (PENTING agar Navbar muncul lagi)
+  useEffect(() => {
+    setIsCropping(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.clear(); // Bersihkan session lokal
+      localStorage.clear();
       navigate('/login', { replace: true });
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error("Logout error:", error);
     }
   };
 
-  // Daftar halaman Auth (Tanpa Sidebar)
   const authPaths = ['/login', '/register', '/reset-password'];
   const isAuthPage = authPaths.includes(location.pathname);
-
-  // LOGIKA PENTING: Sembunyikan Sidebar/Navbar jika sedang mengedit foto atau di halaman Auth
-  // Note: State isCropping ini harus dikirim ke komponen Settings
+  
+  // LOGIKA UTAMA: Navbar hilang jika tidak login, di page auth, atau modal aktif (isCropping)
   const shouldHideUI = !user || isAuthPage || isCropping;
 
   if (loading) {
@@ -72,7 +74,7 @@ function App() {
     <div className={`${darkMode ? 'dark bg-[#0f172a]' : 'bg-gray-50'} min-h-screen transition-colors duration-300`}>
       <div className="flex flex-col md:flex-row min-h-screen">
         
-        {/* SIDEBAR & NAV BAR: Hanya muncul jika user login, bukan halaman auth, dan TIDAK sedang cropping */}
+        {/* SIDEBAR / BOTTOM NAVBAR */}
         {!shouldHideUI && (
           <Sidebar 
             darkMode={darkMode} 
@@ -81,40 +83,25 @@ function App() {
           />
         )}
 
-        {/* MAIN CONTENT AREA */}
-        <main className={`flex-1 w-full ${!shouldHideUI ? 'md:pb-0 pb-24' : ''}`}> 
+        {/* AREA KONTEN */}
+        <main className={`flex-1 w-full ${!shouldHideUI ? 'md:pb-0 pb-20' : ''}`}> 
           <Routes>
-            {/* ================= PUBLIC ROUTES ================= */}
-            <Route 
-              path="/login" 
-              element={!user ? <Login onSwitch={() => navigate('/register')} /> : <Navigate to="/dashboard" />} 
-            />
-            <Route 
-              path="/register" 
-              element={!user ? <Register onSwitch={() => navigate('/login')} /> : <Navigate to="/dashboard" />} 
-            />
-            <Route 
-              path="/reset-password" 
-              element={<ResetPassword />} 
-            />
+            {/* PUBLIC ROUTES */}
+            <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+            <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* ================= PROTECTED ROUTES ================= */}
-            <Route 
-              path="/dashboard" 
-              element={user ? <Dashboard /> : <Navigate to="/login" />} 
-            />
-            <Route 
-              path="/transaksi" 
-              element={user ? <TransactionsPage /> : <Navigate to="/login" />} 
-            />
+            {/* PROTECTED ROUTES */}
+            <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+            <Route path="/transaksi" element={user ? <TransactionsPage /> : <Navigate to="/login" />} />
+            
             <Route 
               path="/produk" 
-              element={user ? <ProductsPage /> : <Navigate to="/login" />} 
+              element={user ? <ProductsPage setIsCropping={setIsCropping} /> : <Navigate to="/login" />} 
             />
-            <Route 
-              path="/laporan" 
-              element={user ? <ReportsPage /> : <Navigate to="/login" />} 
-            />
+            
+            <Route path="/laporan" element={user ? <ReportsPage /> : <Navigate to="/login" />} />
+            
             <Route 
               path="/pengaturan" 
               element={user ? (
@@ -123,14 +110,13 @@ function App() {
                   onLogout={handleLogout} 
                   darkMode={darkMode} 
                   setDarkMode={setDarkMode} 
-                  setIsCropping={setIsCropping} // Kirim fungsi ini ke Settings
+                  setIsCropping={setIsCropping} 
                 />
               ) : <Navigate to="/login" />} 
             />
 
-            {/* ================= REDIRECTS ================= */}
+            {/* REDIRECTS */}
             <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
-            <Route path="/settings" element={<Navigate to="/pengaturan" />} />
             <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} /> 
           </Routes>
         </main>
