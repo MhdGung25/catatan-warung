@@ -1,278 +1,271 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  FiPlus, FiTrash2, FiHash, FiTag, FiShoppingBag, 
-  FiDollarSign, FiLayers, FiAlertCircle 
+  FiPlus, FiEdit2, FiTrash2, FiSearch, FiPackage, 
+  FiSave, FiX, FiAlertTriangle, FiArrowUp, FiArrowDown,
+  FiShoppingBag, FiCoffee, FiTruck, FiBox
 } from "react-icons/fi";
 
 function ProductsPage() {
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const codeInputRef = useRef(null);
-  const [newItem, setNewItem] = useState({ code: "", name: "", price: "", stock: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [sortOrder, setSortOrder] = useState("desc");
 
-  // 1. FIX: AUTO SCROLL KE ATAS SAAT HALAMAN DIBUKA/DI-REFRESH
+  const [formData, setFormData] = useState({
+    code: "",
+    name: "",
+    price: "",
+    stock: "",
+    category: "Umum"
+  });
+
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    const saved = localStorage.getItem("warung_products");
+    if (saved) setProducts(JSON.parse(saved));
   }, []);
 
-  const loadProducts = () => {
-    const savedProducts = localStorage.getItem("warung_products");
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    }
-    setLoading(false);
+  const saveToLocal = (updatedProducts) => {
+    localStorage.setItem("warung_products", JSON.stringify(updatedProducts));
+    setProducts(updatedProducts);
   };
 
-  useEffect(() => {
-    loadProducts();
-    const handleStorageChange = () => loadProducts();
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem("warung_products", JSON.stringify(products));
-    }
-  }, [products, loading]);
-
-  const handleAddProduct = (e) => {
-    e.preventDefault();
-    if (!newItem.name || !newItem.price || !newItem.code || !newItem.stock) {
-      alert("⚠️ Mohon lengkapi semua data produk!");
-      return;
-    }
-
-    const existingIndex = products.findIndex(p => p.code === newItem.code);
-    if (existingIndex !== -1) {
-      if (window.confirm("Produk sudah ada. Tambah stoknya?")) {
-        const updatedProducts = [...products];
-        updatedProducts[existingIndex].stock += parseInt(newItem.stock);
-        updatedProducts[existingIndex].price = parseInt(newItem.price);
-        setProducts(updatedProducts);
-      }
+  const handleOpenModal = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setFormData(product);
     } else {
-      const newEntry = {
-        id: Date.now(),
-        code: newItem.code.trim(),
-        name: newItem.name.trim(),
-        price: parseInt(newItem.price),
-        stock: parseInt(newItem.stock),
-      };
-      setProducts([newEntry, ...products]);
+      setEditingProduct(null);
+      setFormData({ code: "", name: "", price: "", stock: "", category: "Umum" });
     }
-
-    setNewItem({ code: "", name: "", price: "", stock: "" });
-    if (codeInputRef.current) codeInputRef.current.focus();
+    setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Hapus produk ini?")) {
-      setProducts(products.filter((p) => p.id !== id));
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    let updated;
+    if (editingProduct) {
+      updated = products.map(p => p.code === editingProduct.code ? formData : p);
+    } else {
+      if (products.find(p => p.code === formData.code)) {
+        alert("Kode produk sudah ada!");
+        return;
+      }
+      updated = [formData, ...products];
+    }
+    saveToLocal(updated);
+    setIsModalOpen(false);
+  };
+
+  const deleteProduct = (code) => {
+    if (window.confirm("Hapus produk ini secara permanen?")) {
+      const updated = products.filter(p => p.code !== code);
+      saveToLocal(updated);
+    }
+  };
+
+  const processedProducts = products
+    .filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.code.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => sortOrder === "asc" ? a.stock - b.stock : b.stock - a.stock);
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case "Makanan": return <FiShoppingBag className="mr-2" />;
+      case "Minuman": return <FiCoffee className="mr-2" />;
+      case "Sembako": return <FiTruck className="mr-2" />;
+      default: return <FiBox className="mr-2" />;
     }
   };
 
   return (
-    /* PENTING: 
-       - pt-28 (Desktop) & pt-24 (Mobile) menjaga konten tetap di bawah navbar.
-       - min-h-[100vh] memastikan background gelap tetap penuh meskipun data kosong.
-    */
-    <div className="pt-24 md:pt-32 p-4 md:p-10 min-h-screen bg-slate-50 dark:bg-[#0f172a] transition-all font-sans pb-44 md:pb-24">
-      
-      {/* HEADER SECTION */}
-      <div className="mb-10 text-center md:text-left animate-in fade-in slide-in-from-top-4 duration-700">
-        <h1 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight mb-2">
-          Gudang Utama
-        </h1>
-        <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 font-medium italic">
-          Kelola stok barang dagangan Anda di sini secara aman.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
+    <div className="pt-20 md:pt-24 min-h-screen bg-slate-50 dark:bg-[#0f172a] font-sans pb-10">
+      <div className="max-w-7xl mx-auto px-4">
         
-        {/* FORM INPUT (KIRI/ATAS) */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 h-fit lg:sticky lg:top-32 z-10">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-              <FiPlus size={24} />
-            </div>
-            <h2 className="text-xl font-black text-slate-800 dark:text-white">Tambah Produk</h2>
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-black dark:text-white uppercase tracking-tight flex items-center gap-3">
+              <FiPackage className="text-emerald-500" size={28} /> Inventori Barang
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Kelola stok dan harga produk warung Anda</p>
           </div>
-          
-          <form onSubmit={handleAddProduct} className="space-y-5">
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Kode Barcode</label>
-              <div className="relative group">
-                <FiHash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-                <input
-                  ref={codeInputRef}
-                  type="text"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold outline-none border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
-                  value={newItem.code}
-                  onChange={(e) => setNewItem({...newItem, code: e.target.value})}
-                  placeholder="Ketik/Scan kode..."
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Nama Barang</label>
-              <div className="relative group">
-                <FiShoppingBag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-                <input
-                  type="text"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold outline-none border-2 border-transparent focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
-                  value={newItem.name}
-                  onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                  placeholder="Nama produk..."
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Harga Jual</label>
-                <div className="relative group">
-                  <FiDollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-                  <input
-                    type="number"
-                    className="w-full pl-10 pr-4 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-indigo-500 focus:bg-white shadow-inner outline-none transition-all"
-                    value={newItem.price}
-                    onChange={(e) => setNewItem({...newItem, price: e.target.value})}
-                    placeholder="Rp"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Stok</label>
-                <div className="relative group">
-                  <FiLayers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-                  <input
-                    type="number"
-                    className="w-full pl-10 pr-4 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-indigo-500 focus:bg-white shadow-inner outline-none transition-all"
-                    value={newItem.stock}
-                    onChange={(e) => setNewItem({...newItem, stock: e.target.value})}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-5 bg-indigo-600 text-white font-black rounded-3xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-3 mt-4 active:scale-95 tracking-widest text-sm"
-            >
-              SIMPAN KE GUDANG
-            </button>
-          </form>
+          <button 
+            onClick={() => handleOpenModal()}
+            className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-emerald-500/30 transition-all active:scale-95 text-xs uppercase"
+          >
+            <FiPlus size={20} /> Tambah Produk
+          </button>
         </div>
 
-        {/* LIST STOK (KANAN/BAWAH) */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border border-white dark:border-slate-700 overflow-hidden">
-            <div className="p-6 md:p-8 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/30 dark:bg-slate-900/20">
-              <h3 className="font-black text-lg md:text-xl flex items-center gap-3 dark:text-white">
-                <FiTag className="text-indigo-500" /> Stok Saat Ini
-              </h3>
-              <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-full font-black uppercase tracking-tighter">
-                {products.length} Jenis Barang
-              </span>
-            </div>
-
-            <div className="overflow-x-auto scrollbar-hide">
-              {/* Desktop Table View */}
-              <table className="w-full text-left hidden md:table">
-                <thead className="bg-slate-50/80 dark:bg-slate-900/80">
-                  <tr>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Barang</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Harga</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Stok</th>
-                    <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {products.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="py-24 text-center text-slate-400 italic font-bold">Gudang masih kosong.</td>
-                    </tr>
-                  ) : (
-                    products.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors group">
-                        <td className="px-8 py-6">
-                          <p className="font-black text-slate-800 dark:text-white text-lg leading-tight">{p.name}</p>
-                          <p className="text-xs text-slate-400 font-mono uppercase">ID: {p.code}</p>
-                        </td>
-                        <td className="px-8 py-6 text-center font-black text-emerald-600 text-lg">
-                          Rp {p.price.toLocaleString('id-ID')}
-                        </td>
-                        <td className="px-8 py-6 text-center">
-                          <span className={`px-4 py-2 rounded-xl font-black text-sm ${
-                            p.stock <= 5 
-                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30' 
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                          }`}>
-                            {p.stock}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <button onClick={() => handleDelete(p.id)} className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all">
-                            <FiTrash2 size={20} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-
-              {/* Mobile Card View */}
-              <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
-                {products.length === 0 ? (
-                  <div className="py-24 text-center text-slate-400 italic font-bold">Gudang Kosong.</div>
-                ) : (
-                  products.map((p) => (
-                    <div key={p.id} className="p-6 flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-900/50 transition-colors">
-                      <div className="flex-1 pr-4">
-                        <p className="font-black text-slate-800 dark:text-white text-base mb-1">{p.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mb-2 uppercase tracking-tighter">ID: {p.code}</p>
-                        <p className="font-black text-emerald-600 text-sm bg-emerald-50 dark:bg-emerald-500/10 inline-block px-3 py-1 rounded-lg">
-                          Rp {p.price.toLocaleString('id-ID')}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-3">
-                         <span className={`px-4 py-2 rounded-2xl font-black text-xs ${
-                            p.stock <= 5 
-                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30' 
-                              : 'bg-indigo-50 text-indigo-600 dark:bg-slate-700 dark:text-slate-300'
-                          }`}>
-                            Stok: {p.stock}
-                          </span>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="p-2.5 text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl active:scale-90 transition-transform"
-                          >
-                            <FiTrash2 size={18} />
-                          </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+        {/* Stats & Search */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Produk</p>
+            <p className="text-3xl font-black dark:text-white">{products.length}</p>
           </div>
           
-          {/* Tips Section */}
-          <div className="flex items-center gap-4 p-6 bg-white dark:bg-slate-800 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
-            <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center shrink-0">
-              <FiAlertCircle size={20} />
+          <div className="md:col-span-3 relative flex items-center group">
+            <div className="absolute left-6 flex items-center justify-center pointer-events-none h-full">
+              <FiSearch className="text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={22} />
             </div>
-            <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-relaxed">
-              Tips: Masukkan kode produk yang sama untuk menambah stok secara otomatis.
-            </p>
+            <input 
+              type="text"
+              placeholder="Cari berdasarkan nama atau kode barang..."
+              className="w-full pl-16 pr-6 py-5 rounded-3xl bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-bold shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Tabel */}
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-[10px] font-black uppercase text-slate-400 tracking-[0.15em] border-b dark:border-slate-700">
+                  <th className="p-6">Info Barang</th>
+                  <th className="p-6">Kategori</th>
+                  <th className="p-6">Harga Jual</th>
+                  <th 
+                    className="p-6 text-center cursor-pointer hover:text-emerald-500 transition-colors"
+                    onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Stok {sortOrder === "asc" ? <FiArrowUp /> : <FiArrowDown />}
+                    </div>
+                  </th>
+                  <th className="p-6 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-slate-700/50">
+                {processedProducts.map((p) => (
+                  <tr key={p.code} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors group">
+                    <td className="p-6">
+                      <p className="font-black dark:text-white uppercase text-sm tracking-tight">{p.name}</p>
+                      <p className="text-[10px] font-mono text-slate-400">#{p.code}</p>
+                    </td>
+                    <td className="p-6">
+                      <span className="inline-flex items-center px-4 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-full text-[10px] font-bold uppercase">
+                        {getCategoryIcon(p.category)} {p.category}
+                      </span>
+                    </td>
+                    <td className="p-6">
+                      <p className="font-black text-emerald-600 dark:text-emerald-400">Rp {Number(p.price).toLocaleString()}</p>
+                    </td>
+                    <td className="p-6 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className={`font-black text-lg ${Number(p.stock) <= 5 ? 'text-red-500 animate-pulse' : 'dark:text-white'}`}>
+                          {p.stock}
+                        </span>
+                        {Number(p.stock) <= 5 && (
+                          <span className="text-[8px] font-black text-red-500 flex items-center gap-1 uppercase">
+                            <FiAlertTriangle /> Stok Tipis
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => handleOpenModal(p)} className="p-3 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-2xl transition-all">
+                          <FiEdit2 size={18} />
+                        </button>
+                        <button onClick={() => deleteProduct(p.code)} className="p-3 text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 rounded-2xl transition-all">
+                          <FiTrash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
+
+      {/* Modal Form */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="p-8 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter">
+                {editingProduct ? 'Update Produk' : 'Tambah Produk'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all">
+                <FiX size={24}/>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-10 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kode Barang</label>
+                  <input 
+                    required disabled={editingProduct}
+                    className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-emerald-500 outline-none disabled:opacity-50 shadow-inner"
+                    value={formData.code}
+                    onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
+                  <select 
+                    className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-emerald-500 outline-none shadow-inner"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  >
+                    <option value="Umum">Umum</option>
+                    <option value="Makanan">Makanan</option>
+                    <option value="Minuman">Minuman</option>
+                    <option value="Sembako">Sembako</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Barang</label>
+                <input 
+                  required 
+                  className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-emerald-500 outline-none shadow-inner"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Harga (Rp)</label>
+                  <input 
+                    required type="number"
+                    className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-emerald-500 outline-none shadow-inner"
+                    value={formData.price}
+                    onChange={(e) => setFormData({...formData, price: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stok</label>
+                  <input 
+                    required type="number"
+                    className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white font-bold border-2 border-transparent focus:border-emerald-500 outline-none shadow-inner"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({...formData, stock: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-6 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-[2rem] shadow-xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-3 mt-4 active:scale-95 uppercase text-xs"
+              >
+                <FiSave size={20} /> Simpan Produk
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
