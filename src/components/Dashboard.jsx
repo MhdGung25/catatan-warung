@@ -1,50 +1,83 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; 
 import { 
-  FiTrendingUp, FiBox, FiDollarSign, FiShoppingBag, 
-  FiCalendar, FiClock, FiZap, FiPackage, FiActivity, FiAlertCircle
+  FiTrendingUp, FiDollarSign, FiShoppingBag, 
+  FiClock, FiActivity, FiAlertCircle, FiPieChart 
 } from "react-icons/fi";
 import { motion } from "framer-motion";
 
 function DashboardPage() {
-  // INISIALISASI NAVIGATE
-  const navigate = useNavigate();
-
   const [stats, setStats] = useState({
     totalRevenue: 0,
+    totalProfit: 0,
     totalOrders: 0,
     totalProducts: 0,
     lowStockItems: 0,
     healthPercent: 0,
     recentSales: [],
+    topProducts: [],
     statusMessage: "",
     isShopOpen: true
   });
 
-  useEffect(() => {
-    // Ambil data dari LocalStorage
+  // Fungsi utama untuk kalkulasi data
+  const refreshData = () => {
     const savedProducts = JSON.parse(localStorage.getItem("warung_products") || "[]");
     const savedSales = JSON.parse(localStorage.getItem("warung_sales") || "[]");
-    
-    // Integrasi dengan Settings
     const threshold = Number(localStorage.getItem("low_stock_threshold") || 5);
     const shopHours = localStorage.getItem("warung_open") || "08:00 - 21:00";
 
-    // Hitung Omzet
-    const revenue = savedSales.reduce((sum, sale) => sum + sale.total, 0);
-    
-    // Hitung Stok Rendah
-    const lowStockList = savedProducts.filter(p => Number(p.stock) <= threshold);
-    const lowStockCount = lowStockList.length;
+    let revenue = 0;
+    let profit = 0;
 
-    // Hitung Kesehatan Inventaris
-    let percentage = 0;
+    // 1. Kalkulasi Keuangan dengan Validasi Angka (Cegah NaN)
+    savedSales.forEach(sale => {
+      const saleTotal = Number(sale.total) || 0;
+      revenue += saleTotal;
+
+      if (sale.items && Array.isArray(sale.items)) {
+        sale.items.forEach(item => {
+          const originalProduct = savedProducts.find(p => p.name === item.name);
+          
+          // Ambil harga beli (costPrice) dan harga jual (price)
+          // Jika costPrice tidak ada, asumsikan profit 0 untuk item tersebut
+          const costPrice = originalProduct ? Number(originalProduct.costPrice || 0) : 0;
+          const sellingPrice = Number(item.price) || 0;
+          const qty = Number(item.qty) || 0;
+
+          // Rumus: (Harga Jual - Harga Beli) * Jumlah
+          if (costPrice > 0) {
+            profit += (sellingPrice - costPrice) * qty;
+          } else {
+            // Jika tidak ada data harga modal, laba dianggap 0 agar tidak merusak total
+            profit += 0;
+          }
+        });
+      }
+    });
+    
+    // 2. Analisis Produk Terlaris
+    const productCounts = {};
+    savedSales.forEach(sale => {
+      if (sale.items) {
+        sale.items.forEach(item => {
+          productCounts[item.name] = (productCounts[item.name] || 0) + (Number(item.qty) || 0);
+        });
+      }
+    });
+
+    const topProducts = Object.entries(productCounts)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+
+    // 3. Status Stok
+    const lowStockCount = savedProducts.filter(p => Number(p.stock) <= threshold).length;
+    let healthPercentage = 100;
     if (savedProducts.length > 0) {
-      const safeItems = savedProducts.length - lowStockCount;
-      percentage = Math.round((safeItems / savedProducts.length) * 100);
+      healthPercentage = Math.round(((savedProducts.length - lowStockCount) / savedProducts.length) * 100);
     }
 
-    // Logika Cek Toko Buka/Tutup
+    // 4. Cek Jam Operasional
     const checkStatus = () => {
       try {
         const now = new Date();
@@ -52,203 +85,182 @@ function DashboardPage() {
         const [start, end] = shopHours.split("-").map(t => t.trim());
         const [startH, startM] = start.split(":").map(Number);
         const [endH, endM] = end.split(":").map(Number);
-        const startTime = startH * 60 + startM;
-        const endTime = endH * 60 + endM;
-        return currentTime >= startTime && currentTime <= endTime;
+        return currentTime >= (startH * 60 + startM) && currentTime <= (endH * 60 + endM);
       } catch (e) { return true; }
     };
 
-    // Pesan Status Dinamis
-    let msg = "";
-    if (lowStockCount > 0) {
-      msg = `Peringatan: ${lowStockCount} produk di bawah batas aman (${threshold} pcs). Segera lakukan restok!`;
-    } else if (savedProducts.length === 0) {
-      msg = "Inventaris masih kosong. Tambahkan produk untuk memulai analisis.";
-    } else {
-      msg = "Sistem Inventaris Sehat! Semua stok terpantau di atas batas minimum.";
-    }
-
     setStats({
       totalRevenue: revenue,
+      totalProfit: profit,
       totalOrders: savedSales.length,
       totalProducts: savedProducts.length,
       lowStockItems: lowStockCount,
-      healthPercent: percentage,
-      recentSales: savedSales.slice(-5).reverse(),
-      statusMessage: msg,
+      healthPercent: healthPercentage,
+      recentSales: savedSales.slice(-8).reverse(),
+      topProducts: topProducts,
+      statusMessage: lowStockCount > 0 
+        ? `Terdapat ${lowStockCount} produk di bawah batas stok.` 
+        : "Seluruh stok tersedia dengan aman.",
       isShopOpen: checkStatus()
     });
+  };
+
+  useEffect(() => {
+    // Jalankan saat pertama kali load
+    refreshData();
+
+    // Otomatis update jika ada perubahan di localStorage (dari tab lain/komponen lain)
+    window.addEventListener('storage', refreshData);
+    
+    // Auto refresh setiap 30 detik untuk update status Buka/Tutup Toko secara real-time
+    const interval = setInterval(refreshData, 30000);
+
+    return () => {
+      window.removeEventListener('storage', refreshData);
+      clearInterval(interval);
+    };
   }, []);
 
-  const formatIDR = (val) => new Intl.NumberFormat('id-ID', { 
-    style: 'currency', currency: 'IDR', maximumFractionDigits: 0 
-  }).format(val);
+  const formatIDR = (val) => {
+    const num = Number(val) || 0; // Memastikan input adalah angka
+    return new Intl.NumberFormat('id-ID', { 
+      style: 'currency', currency: 'IDR', maximumFractionDigits: 0 
+    }).format(num);
+  };
 
   return (
-    <div className="pt-24 md:pt-32 min-h-screen bg-slate-50 dark:bg-[#020617] pb-10 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="pt-24 md:pt-32 min-h-screen bg-[#f8fafc] dark:bg-[#020617] pb-20 transition-all duration-300">
+      <div className="max-w-7xl mx-auto px-6">
         
-        {/* HEADER SECTION */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl md:text-4xl font-black dark:text-white uppercase tracking-tighter flex items-center gap-3">
-                <FiActivity className="text-emerald-500" size={32} /> Dashboard
-              </h1>
-              <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                stats.isShopOpen 
-                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                : 'bg-red-500/10 text-red-500 border-red-500/20'
-              }`}>
-                {stats.isShopOpen ? '● Terbuka' : '○ Tutup'}
-              </span>
+            <div className="flex items-center gap-4">
+               <h1 className="text-4xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">
+                 Dashboard <span className="text-emerald-500">Bisnis</span>
+               </h1>
+               <div className={`px-4 py-1.5 rounded-full text-[10px] font-black border-2 flex items-center gap-2 ${stats.isShopOpen ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
+                 <span className={`w-2 h-2 rounded-full ${stats.isShopOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                 {stats.isShopOpen ? 'SISTEM AKTIF' : 'SISTEM OFFLINE'}
+               </div>
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">
-              Analisis Aktivitas Bisnis Real-Time
-            </p>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic">Sinkronisasi Real-time Berhasil</p>
           </motion.div>
-          
-          <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 pr-6 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="bg-emerald-500/10 p-3 rounded-xl text-emerald-500">
-              <FiCalendar size={20}/>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Update Data</span>
-              <span className="text-xs font-black dark:text-white uppercase">
-                {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-            </div>
-          </div>
         </div>
 
-        {/* STATS CARDS */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+        {/* STATS KARTU */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
-            { label: "Total Omzet", val: formatIDR(stats.totalRevenue), icon: <FiDollarSign />, color: "bg-blue-600", shadow: "shadow-blue-500/20" },
-            { label: "Total Pesanan", val: `${stats.totalOrders} Trx`, icon: <FiShoppingBag />, color: "bg-emerald-600", shadow: "shadow-emerald-500/20" },
-            { label: "Aset Produk", val: `${stats.totalProducts} Item`, icon: <FiBox />, color: "bg-indigo-600", shadow: "shadow-indigo-500/20" },
-            { label: "Stok Kritis", val: `${stats.lowStockItems} Produk`, icon: <FiAlertCircle />, color: "bg-rose-600", shadow: "shadow-rose-500/20", crit: stats.lowStockItems > 0 },
-          ].map((item, i) => (
+            { label: "Total Omzet", val: formatIDR(stats.totalRevenue), icon: <FiDollarSign />, color: "text-blue-500", bg: "bg-blue-500/10" },
+            { label: "Laba Bersih", val: formatIDR(stats.totalProfit), icon: <FiTrendingUp />, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+            { label: "Total Transaksi", val: `${stats.totalOrders} Trx`, icon: <FiShoppingBag />, color: "text-violet-500", bg: "bg-violet-500/10" },
+            { label: "Stok Kritis", val: `${stats.lowStockItems} Produk`, icon: <FiAlertCircle />, color: "text-rose-500", bg: "bg-rose-500/10", alert: stats.lowStockItems > 0 },
+          ].map((card, i) => (
             <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
-              key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-emerald-500/50 transition-all"
+              key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+              className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
             >
-              <div className={`${item.color} w-10 h-10 rounded-2xl flex items-center justify-center text-white mb-5 shadow-lg ${item.shadow}`}>
-                {item.icon}
+              <div className={`${card.bg} ${card.color} w-14 h-14 rounded-2xl flex items-center justify-center mb-6`}>
+                {React.cloneElement(card.icon, { size: 24 })}
               </div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{item.label}</p>
-              <h2 className={`text-sm md:text-xl font-black dark:text-white truncate ${item.crit ? 'text-rose-500' : ''}`}>{item.val}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
+              <h3 className={`text-2xl font-black dark:text-white tracking-tight ${card.alert ? 'text-rose-600' : ''}`}>{card.val}</h3>
             </motion.div>
           ))}
         </div>
 
+        {/* DATA UTAMA */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* RECENT SALES TABLE */}
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-            className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm"
-          >
-            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
-              <h3 className="font-black dark:text-white uppercase text-xs tracking-widest flex items-center gap-3">
-                <FiClock className="text-blue-500" /> Transaksi Terakhir
-              </h3>
-              <button 
-                onClick={() => navigate("/laporan")} 
-                className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 px-4 py-2 rounded-xl transition-all duration-300"
-              >
-                Lihat Semua
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b dark:border-slate-800">
-                    <th className="px-8 py-5">Detail Transaksi</th>
-                    <th className="px-8 py-5">Metode</th>
-                    <th className="px-8 py-5 text-right">Nominal</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y dark:divide-slate-800">
-                  {stats.recentSales.length > 0 ? stats.recentSales.map((sale, i) => (
-                    <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-8 py-5">
-                        <p className="font-black text-slate-800 dark:text-white text-xs uppercase group-hover:text-emerald-500 transition-colors">{sale.id}</p>
-                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">
-                          {new Date(sale.date).toLocaleString('id-ID', {hour: '2-digit', minute:'2-digit'})} WIB
-                        </p>
-                      </td>
-                      <td className="px-8 py-5">
-                        <span className="text-[9px] font-black px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 dark:text-slate-300 uppercase border dark:border-slate-700">
-                          {sale.method}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-right font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                        {formatIDR(sale.total)}
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="3" className="py-24 text-center">
-                         <FiShoppingBag className="mx-auto text-slate-200 dark:text-slate-800 mb-4" size={48} />
-                         <p className="text-slate-400 italic text-[10px] uppercase font-black tracking-widest">Belum ada aktivitas penjualan</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </motion.div>
-
-          {/* SIDEBAR DASHBOARD */}
-          <div className="lg:col-span-4 space-y-6">
-            <motion.div 
-              whileHover={{ y: -5 }}
-              className={`${stats.lowStockItems > 0 ? 'bg-rose-600' : 'bg-emerald-600'} rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-500/20`}
-            >
-              <FiTrendingUp className="absolute -right-6 -bottom-6 text-white/10 w-40 h-40 rotate-12" />
-              <div className="relative z-10">
-                <h4 className="text-xl font-black mb-2 uppercase tracking-tight">
-                   {stats.lowStockItems > 0 ? 'Waspada Stok!' : 'Kinerja Stabil'}
-                </h4>
-                <p className="text-white/80 text-[10px] font-bold mb-8 leading-relaxed uppercase tracking-wide">
-                  {stats.statusMessage}
-                </p>
-                <div className="flex items-center gap-2 bg-black/20 w-fit px-4 py-2 rounded-2xl backdrop-blur-md border border-white/10">
-                  <FiZap className="text-yellow-400" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white">Auto-Sync Active</span>
-                </div>
+          <div className="lg:col-span-8">
+            <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-8 border-b dark:border-slate-800 flex items-center gap-3 bg-slate-50/50 dark:bg-slate-800/20">
+                <FiClock className="text-emerald-500" />
+                <h3 className="font-black dark:text-white uppercase text-xs tracking-widest">Penjualan Terakhir</h3>
               </div>
-            </motion.div>
-
-            {/* PROGRESS BAR KESEHATAN STOK */}
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="font-black dark:text-white uppercase text-[10px] tracking-[0.2em] flex items-center gap-2">
-                  <FiPackage className="text-amber-500" /> Kesehatan Stok
-                </h3>
-                <span className={`text-[10px] font-black px-3 py-1 rounded-full ${stats.healthPercent < 50 ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                  {stats.healthPercent}%
-                </span>
-              </div>
-              <div className="space-y-6">
-                <div className="w-full h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-1">
-                  <motion.div 
-                    initial={{ width: 0 }} 
-                    animate={{ width: `${stats.healthPercent}%` }} 
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={`h-full rounded-full shadow-lg ${stats.healthPercent < 50 ? 'bg-rose-500' : 'bg-emerald-500'}`}
-                  />
-                </div>
-                <div className={`p-5 rounded-[2rem] border-2 border-dashed transition-all duration-300 ${stats.lowStockItems > 0 ? 'bg-rose-50/50 dark:bg-rose-500/5 border-rose-200 dark:border-rose-900/50' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800'}`}>
-                  <p className={`text-[9px] font-black uppercase leading-relaxed text-center ${stats.lowStockItems > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                    Sistem memantau {stats.totalProducts} aset produk Anda secara otomatis.
-                  </p>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b dark:border-slate-800">
+                      <th className="px-8 py-5">Order ID</th>
+                      <th className="px-8 py-5">Metode</th>
+                      <th className="px-8 py-5 text-right">Total Tagihan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y dark:divide-slate-800">
+                    {stats.recentSales.length > 0 ? stats.recentSales.map((sale, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-8 py-6">
+                          <p className="font-black dark:text-white text-sm uppercase">{sale.id}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{new Date(sale.date).toLocaleTimeString('id-ID')} WIB</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] font-black uppercase border dark:border-slate-700 dark:text-slate-400">
+                            {sale.method}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6 text-right font-black text-emerald-600 text-base">
+                          {formatIDR(sale.total)}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="3" className="py-24 text-center text-slate-400 font-black uppercase text-[10px] tracking-widest italic opacity-50">Belum Ada Transaksi Masuk</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
 
+          <div className="lg:col-span-4 space-y-8">
+            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="font-black dark:text-white uppercase text-[10px] tracking-widest flex items-center gap-3">
+                  <FiActivity className="text-blue-500" /> Rasio Stok
+                </h3>
+                <span className={`text-xl font-black ${stats.healthPercent < 50 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                  {stats.healthPercent}%
+                </span>
+              </div>
+              <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full mb-6 overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }} animate={{ width: `${stats.healthPercent}%` }}
+                  transition={{ duration: 1 }}
+                  className={`h-full ${stats.healthPercent < 50 ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                />
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase text-center leading-relaxed italic">
+                {stats.statusMessage}
+              </p>
+            </div>
+
+            <div className="bg-slate-900 rounded-[3rem] p-8 text-white shadow-xl relative border border-white/5">
+               <h3 className="font-black uppercase text-[10px] tracking-widest mb-6 text-emerald-400 flex items-center gap-2">
+                 <FiPieChart /> Top 5 Terlaris
+               </h3>
+               <div className="space-y-4">
+                 {stats.topProducts.length > 0 ? stats.topProducts.map((item, i) => (
+                   <div key={i} className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                     <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black">
+                          {i + 1}
+                        </div>
+                        <span className="font-black uppercase text-[11px] truncate max-w-[120px]">
+                          {item.name}
+                        </span>
+                     </div>
+                     <span className="text-[10px] font-black bg-white/10 px-3 py-1 rounded-full text-emerald-300">
+                       {item.qty} Unit
+                     </span>
+                   </div>
+                 )) : (
+                   <p className="text-[10px] font-black uppercase opacity-30 text-center py-4">Data belum tersedia</p>
+                 )}
+               </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
