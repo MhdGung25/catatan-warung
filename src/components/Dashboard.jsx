@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-// 1. Pastikan useNavigate diimpor
 import { useNavigate } from "react-router-dom"; 
 import { 
   FiTrendingUp, FiBox, FiDollarSign, FiShoppingBag, 
@@ -8,7 +7,7 @@ import {
 import { motion } from "framer-motion";
 
 function DashboardPage() {
-  // 2. INISIALISASI NAVIGATE (Ini solusi untuk menghilangkan garis merah)
+  // INISIALISASI NAVIGATE
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({
@@ -27,14 +26,14 @@ function DashboardPage() {
     const savedProducts = JSON.parse(localStorage.getItem("warung_products") || "[]");
     const savedSales = JSON.parse(localStorage.getItem("warung_sales") || "[]");
     
-    // Integrasi dengan Settings (Threshold stok dan Jam Buka)
+    // Integrasi dengan Settings
     const threshold = Number(localStorage.getItem("low_stock_threshold") || 5);
     const shopHours = localStorage.getItem("warung_open") || "08:00 - 21:00";
 
     // Hitung Omzet
     const revenue = savedSales.reduce((sum, sale) => sum + sale.total, 0);
     
-    // Hitung Stok Rendah berdasarkan Threshold dari Settings
+    // Hitung Stok Rendah
     const lowStockList = savedProducts.filter(p => Number(p.stock) <= threshold);
     const lowStockCount = lowStockList.length;
 
@@ -45,7 +44,7 @@ function DashboardPage() {
       percentage = Math.round((safeItems / savedProducts.length) * 100);
     }
 
-    // Logika Cek Toko Buka/Tutup Otomatis
+    // Logika Cek Toko Buka/Tutup
     const checkStatus = () => {
       try {
         const now = new Date();
@@ -62,11 +61,11 @@ function DashboardPage() {
     // Pesan Status Dinamis
     let msg = "";
     if (lowStockCount > 0) {
-      msg = `Peringatan: ${lowStockCount} produk di bawah batas aman (${threshold} pcs).`;
+      msg = `Peringatan: ${lowStockCount} produk di bawah batas aman (${threshold} pcs). Segera lakukan restok!`;
     } else if (savedProducts.length === 0) {
-      msg = "Inventaris kosong. Mulai tambahkan produk sekarang.";
+      msg = "Inventaris masih kosong. Tambahkan produk untuk memulai analisis.";
     } else {
-      msg = "Manajemen stok luar biasa! Semua produk terpantau aman.";
+      msg = "Sistem Inventaris Sehat! Semua stok terpantau di atas batas minimum.";
     }
 
     setStats({
@@ -126,19 +125,19 @@ function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {[
             { label: "Total Omzet", val: formatIDR(stats.totalRevenue), icon: <FiDollarSign />, color: "bg-blue-600", shadow: "shadow-blue-500/20" },
-            { label: "Total Pesanan", val: `${stats.totalOrders} Transaksi`, icon: <FiShoppingBag />, color: "bg-emerald-600", shadow: "shadow-emerald-500/20" },
+            { label: "Total Pesanan", val: `${stats.totalOrders} Trx`, icon: <FiShoppingBag />, color: "bg-emerald-600", shadow: "shadow-emerald-500/20" },
             { label: "Aset Produk", val: `${stats.totalProducts} Item`, icon: <FiBox />, color: "bg-indigo-600", shadow: "shadow-indigo-500/20" },
             { label: "Stok Kritis", val: `${stats.lowStockItems} Produk`, icon: <FiAlertCircle />, color: "bg-rose-600", shadow: "shadow-rose-500/20", crit: stats.lowStockItems > 0 },
           ].map((item, i) => (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
-              key={i} className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-emerald-500/50 transition-all"
+              key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group hover:border-emerald-500/50 transition-all"
             >
-              <div className={`${item.color} w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-white mb-5 shadow-lg ${item.shadow}`}>
+              <div className={`${item.color} w-10 h-10 rounded-2xl flex items-center justify-center text-white mb-5 shadow-lg ${item.shadow}`}>
                 {item.icon}
               </div>
-              <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{item.label}</p>
-              <h2 className={`text-sm md:text-xl font-black dark:text-white truncate ${item.crit ? 'text-rose-500 animate-pulse' : ''}`}>{item.val}</h2>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{item.label}</p>
+              <h2 className={`text-sm md:text-xl font-black dark:text-white truncate ${item.crit ? 'text-rose-500' : ''}`}>{item.val}</h2>
             </motion.div>
           ))}
         </div>
@@ -154,10 +153,9 @@ function DashboardPage() {
               <h3 className="font-black dark:text-white uppercase text-xs tracking-widest flex items-center gap-3">
                 <FiClock className="text-blue-500" /> Transaksi Terakhir
               </h3>
-              {/* TOMBOL YANG TADI EROR - Sekarang Sudah Aman */}
               <button 
                 onClick={() => navigate("/laporan")} 
-                className="text-[9px] font-black uppercase text-emerald-500 border border-emerald-500/20 px-4 py-2 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
+                className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-500/5 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 px-4 py-2 rounded-xl transition-all duration-300"
               >
                 Lihat Semua
               </button>
@@ -175,8 +173,8 @@ function DashboardPage() {
                   {stats.recentSales.length > 0 ? stats.recentSales.map((sale, i) => (
                     <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-8 py-5">
-                        <p className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-tight group-hover:text-emerald-500 transition-colors">{sale.id}</p>
-                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">
+                        <p className="font-black text-slate-800 dark:text-white text-xs uppercase group-hover:text-emerald-500 transition-colors">{sale.id}</p>
+                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">
                           {new Date(sale.date).toLocaleString('id-ID', {hour: '2-digit', minute:'2-digit'})} WIB
                         </p>
                       </td>
@@ -202,15 +200,15 @@ function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* SIDEBAR */}
+          {/* SIDEBAR DASHBOARD */}
           <div className="lg:col-span-4 space-y-6">
             <motion.div 
               whileHover={{ y: -5 }}
-              className={`${stats.lowStockItems > 0 ? 'bg-rose-600 shadow-rose-500/20' : 'bg-emerald-600 shadow-emerald-500/20'} rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl transition-colors duration-500`}
+              className={`${stats.lowStockItems > 0 ? 'bg-rose-600' : 'bg-emerald-600'} rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-emerald-500/20`}
             >
               <FiTrendingUp className="absolute -right-6 -bottom-6 text-white/10 w-40 h-40 rotate-12" />
               <div className="relative z-10">
-                <h4 className="text-xl font-black mb-2 uppercase tracking-tight leading-tight">
+                <h4 className="text-xl font-black mb-2 uppercase tracking-tight">
                    {stats.lowStockItems > 0 ? 'Waspada Stok!' : 'Kinerja Stabil'}
                 </h4>
                 <p className="text-white/80 text-[10px] font-bold mb-8 leading-relaxed uppercase tracking-wide">
@@ -223,6 +221,7 @@ function DashboardPage() {
               </div>
             </motion.div>
 
+            {/* PROGRESS BAR KESEHATAN STOK */}
             <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex justify-between items-center mb-6">
                  <h3 className="font-black dark:text-white uppercase text-[10px] tracking-[0.2em] flex items-center gap-2">
