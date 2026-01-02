@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 
-export const useDarkMode = () => {
+// Hapus 'export' di depan const, pindahkan ke bawah sebagai 'default'
+const useDarkMode = () => {
   const [darkMode, setDarkMode] = useState(() => {
+    // Sinkronisasi dengan localStorage agar saat refresh mode tidak hilang
     return localStorage.getItem("darkMode") === "true";
   });
 
@@ -12,8 +14,12 @@ export const useDarkMode = () => {
     } else {
       root.classList.remove("dark");
     }
+    // Simpan pilihan user ke localStorage
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
   return [darkMode, setDarkMode];
 };
+
+// WAJIB TAMBAHKAN INI:
+export default useDarkMode;
