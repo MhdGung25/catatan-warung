@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { 
   FiShoppingBag, FiArrowUpRight, FiFileText, 
   FiCreditCard, FiTarget, FiTrendingUp, 
-  FiLayers, FiBarChart2 
-} from "react-icons/fi";
+  FiLayers
+} from "react-icons/fi"; // FiBarChart2, FiDownload, dan FiActivity telah dihapus
 import { motion } from "framer-motion";
 
 function ReportsPage() {
@@ -16,13 +16,13 @@ function ReportsPage() {
   });
 
   const calculateReports = useCallback(() => {
-    const savedSales = JSON.parse(localStorage.getItem("warung_sales") || "[]");
-    const savedProducts = JSON.parse(localStorage.getItem("warung_products") || "[]");
+    const savedSales = JSON.parse(localStorage.getItem("sales_history") || "[]");
+    const savedProducts = JSON.parse(localStorage.getItem("products") || "[]");
     
     const now = new Date();
-    const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
-    const startOfWeek = new Date(new Date().setDate(now.getDate() - now.getDay()));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(new Date().setDate(now.getDate() - now.getDay())).setHours(0,0,0,0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).setHours(0,0,0,0);
 
     const filteredSales = savedSales.filter(sale => {
       const saleDate = new Date(sale.date);
@@ -39,20 +39,23 @@ function ReportsPage() {
 
     filteredSales.forEach(sale => {
       totalRev += Number(sale.total) || 0;
-      payments[sale.method] = (payments[sale.method] || 0) + (Number(sale.total) || 0);
+      const method = sale.method || "Tunai";
+      payments[method] = (payments[method] || 0) + (Number(sale.total) || 0);
 
       if (sale.items) {
         sale.items.forEach(item => {
-          const product = savedProducts.find(p => p.name === item.name);
+          const product = savedProducts.find(p => p.code === item.id || p.name === item.name);
           const costPrice = product ? Number(product.costPrice || 0) : 0;
+          const sellPrice = Number(item.price) || 0;
           const qty = Number(item.qty) || 0;
-          
-          totalProf += (Number(item.price) - costPrice) * qty;
 
-          const cat = product?.category || "Lain-lain";
+          const itemProfit = (sellPrice - costPrice) * qty;
+          totalProf += itemProfit;
+
+          const cat = product?.category || "Umum";
           if (!categories[cat]) categories[cat] = { sales: 0, profit: 0, qty: 0 };
-          categories[cat].sales += (Number(item.price) * qty);
-          categories[cat].profit += (Number(item.price) - costPrice) * qty;
+          categories[cat].sales += (sellPrice * qty);
+          categories[cat].profit += itemProfit;
           categories[cat].qty += qty;
         });
       }
@@ -67,15 +70,27 @@ function ReportsPage() {
         avgTicket: filteredSales.length > 0 ? totalRev / filteredSales.length : 0
       },
       paymentMethods: payments,
-      recentSales: filteredSales.slice().reverse(),
+      recentSales: filteredSales.slice().reverse().slice(0, 50),
       categoryAnalysis: categories
     });
   }, [filterRange]);
 
   useEffect(() => {
     calculateReports();
-    window.addEventListener('storage', calculateReports);
-    return () => window.removeEventListener('storage', calculateReports);
+
+    const handleStorageChange = (e) => {
+      if (e.key === "sales_history" || e.key === "products") {
+        calculateReports();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(calculateReports, 3000); // Cek data tiap 3 detik
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [calculateReports]);
 
   const formatIDR = (val) => new Intl.NumberFormat('id-ID', { 
@@ -83,116 +98,72 @@ function ReportsPage() {
   }).format(val || 0);
 
   return (
-    <div className="pt-24 md:pt-32 min-h-screen bg-[#f8fafc] dark:bg-[#020617] pb-20 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-6">
-        
-        {/* HEADER ANALISIS */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="text-4xl md:text-5xl font-black dark:text-white uppercase tracking-tighter">
-              Business <span className="text-emerald-500">Intelligence</span>
-            </h1>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-3 italic flex items-center gap-2">
-              <FiBarChart2 className="text-emerald-500" /> Evaluasi Strategis & Laba Bersih
-            </p>
-          </motion.div>
+    <div className="min-h-screen bg-[#fcfcfc] dark:bg-[#020617] pb-20">
+      <div className="max-w-7xl mx-auto px-4 pt-10 md:pt-20">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2">Statistik Real-time</p>
+          <h1 className="text-4xl md:text-6xl font-black dark:text-white uppercase tracking-tighter mb-8">
+            REKAP <span className="text-emerald-500">BISNIS</span>
+          </h1>
+        </motion.div>
 
-          {/* FILTER PERIODE (EMERALD STYLE) */}
-          <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800">
-            {[
-              { id: 'day', label: 'Hari Ini' },
-              { id: 'week', label: 'Minggu' },
-              { id: 'month', label: 'Bulan' },
-              { id: 'all', label: 'Semua' }
-            ].map((range) => (
-              <button
-                key={range.id}
-                onClick={() => setFilterRange(range.id)}
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-                  filterRange === range.id 
-                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
-                  : 'text-slate-400 hover:text-emerald-500'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
+        {/* Filter Periode */}
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border dark:border-slate-800 mb-8 max-w-md">
+          {['day', 'week', 'month', 'all'].map((r) => (
+            <button
+              key={r}
+              onClick={() => setFilterRange(r)}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
+                filterRange === r 
+                ? 'bg-white dark:bg-emerald-500 shadow-xl text-emerald-600 dark:text-white' 
+                : 'text-slate-500 hover:text-emerald-500'
+              }`}
+            >
+              {r === 'day' ? 'Hari' : r === 'week' ? 'Minggu' : r === 'month' ? 'Bulan' : 'Semua'}
+            </button>
+          ))}
         </div>
 
-        {/* METRIK UTAMA (EMERALD THEMED) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <StatCard title="Total Omzet" value={formatIDR(reports.summary.revenue)} sub="Pendapatan Kotor" icon={<FiArrowUpRight />} color="emerald" />
-          <StatCard title="Laba Bersih" value={formatIDR(reports.summary.profit)} sub={`Margin: ${reports.summary.margin.toFixed(1)}%`} icon={<FiTrendingUp />} color="emerald" highlight />
-          <StatCard title="Rata-rata Transaksi" value={formatIDR(reports.summary.avgTicket)} sub="Nilai per Struk" icon={<FiTarget />} color="emerald" />
-          <StatCard title="Volume Sales" value={`${reports.summary.totalSales} Trx`} sub="Total Pesanan" icon={<FiShoppingBag />} color="emerald" />
+        {/* Kartu Utama */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+          <StatCard title="Omzet" value={formatIDR(reports.summary.revenue)} sub="Gross" icon={<FiArrowUpRight />} />
+          <StatCard title="Laba" value={formatIDR(reports.summary.profit)} sub={`${reports.summary.margin.toFixed(0)}% Margin`} icon={<FiTrendingUp />} isPrimary />
+          <StatCard title="Rata-rata" value={formatIDR(reports.summary.avgTicket)} sub="Per Transaksi" icon={<FiTarget />} />
+          <StatCard title="Volume" value={reports.summary.totalSales} sub="Transaksi" icon={<FiShoppingBag />} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* ANALISIS KATEGORI (LEFT) */}
-          <div className="lg:col-span-8 space-y-8">
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-emerald-50/30 dark:bg-emerald-900/10">
-                <div className="flex items-center gap-3">
-                  <FiLayers className="text-emerald-500" />
-                  <h3 className="font-black dark:text-white uppercase text-xs tracking-widest">Performansi Kategori</h3>
-                </div>
-              </div>
-              <div className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(reports.categoryAnalysis).map(([cat, data], i) => (
-                    <div key={i} className="p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 hover:border-emerald-500/30 transition-all">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-500/10 px-3 py-1 rounded-full">{cat}</span>
-                        <span className="text-[9px] font-bold text-slate-400 italic">{data.qty} Unit</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">Profit Kontribusi</p>
-                        <h4 className="text-xl font-black dark:text-white">{formatIDR(data.profit)}</h4>
-                      </div>
-                      <div className="mt-4 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${reports.summary.profit > 0 ? (data.profit / reports.summary.profit) * 100 : 0}%` }}
-                          className="h-full bg-emerald-500" 
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* AUDIT LOG (GREEN ACCENT) */}
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center">
-                <h3 className="font-black dark:text-white uppercase text-xs tracking-widest flex items-center gap-2">
-                  <FiFileText className="text-emerald-500" /> Log Transaksi
+          {/* Riwayat Transaksi */}
+          <div className="lg:col-span-8">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="p-8 border-b dark:border-slate-800">
+                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-3 dark:text-white">
+                  <FiFileText className="text-emerald-500" /> Log Penjualan Terbaru
                 </h3>
-                <button className="text-[10px] font-black uppercase text-emerald-500 hover:text-emerald-600 transition-colors">Export CSV</button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-emerald-50/30 dark:bg-emerald-900/10">
-                    <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      <th className="px-8 py-4">Waktu</th>
-                      <th className="px-8 py-4">ID Transaksi</th>
-                      <th className="px-8 py-4">Metode</th>
-                      <th className="px-8 py-4 text-right">Nominal</th>
+                <table className="w-full">
+                  <thead className="bg-slate-50 dark:bg-slate-950 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <tr>
+                      <th className="px-8 py-5 text-left">Waktu</th>
+                      <th className="px-8 py-5 text-left">Metode</th>
+                      <th className="px-8 py-5 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-slate-800">
                     {reports.recentSales.map((sale, i) => (
-                      <tr key={i} className="hover:bg-emerald-50/20 dark:hover:bg-emerald-900/5 transition-colors">
-                        <td className="px-8 py-4 text-[10px] font-bold text-slate-400">{new Date(sale.date).toLocaleTimeString('id-ID')}</td>
-                        <td className="px-8 py-4 text-[10px] font-black dark:text-white uppercase">{sale.id}</td>
-                        <td className="px-8 py-4">
-                          <span className="text-[9px] font-black px-2 py-1 rounded bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-500/20 uppercase">
+                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="px-8 py-5 text-xs font-bold dark:text-slate-400">
+                          {new Date(sale.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase">
                             {sale.method}
                           </span>
                         </td>
-                        <td className="px-8 py-4 text-right font-black text-emerald-600 dark:text-emerald-400 text-xs">{formatIDR(sale.total)}</td>
+                        <td className="px-8 py-5 text-right font-black text-sm dark:text-white">
+                          {formatIDR(sale.total)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -201,29 +172,24 @@ function ReportsPage() {
             </div>
           </div>
 
-          {/* SIDEBAR ANALYTICS (RIGHT) */}
+          {/* Sidebar Analisis */}
           <div className="lg:col-span-4 space-y-8">
-            
-            {/* KAS (GREEN THEMED) */}
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-              <h3 className="font-black dark:text-white uppercase text-[10px] tracking-widest mb-8 flex items-center gap-3">
-                <FiCreditCard className="text-emerald-500" /> Arus Kas
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-8 dark:text-white flex items-center gap-3">
+                <FiCreditCard className="text-emerald-500" /> Kas Masuk
               </h3>
               <div className="space-y-6">
                 {Object.entries(reports.paymentMethods).map(([method, amount], i) => (
-                  <div key={i} className="relative">
-                    <div className="flex justify-between items-end mb-2">
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{method}</p>
-                        <p className="text-sm font-black dark:text-white">{formatIDR(amount)}</p>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-500">{reports.summary.revenue > 0 ? ((amount / reports.summary.revenue) * 100).toFixed(0) : 0}%</span>
+                  <div key={i}>
+                    <div className="flex justify-between mb-2">
+                      <p className="text-[10px] font-black text-slate-400 uppercase">{method}</p>
+                      <p className="text-sm font-black dark:text-white">{formatIDR(amount)}</p>
                     </div>
-                    <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <motion.div 
-                        initial={{ width: 0 }} 
+                        initial={{ width: 0 }}
                         animate={{ width: `${reports.summary.revenue > 0 ? (amount / reports.summary.revenue) * 100 : 0}%` }}
-                        className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                        className="h-full bg-emerald-500"
                       />
                     </div>
                   </div>
@@ -231,22 +197,21 @@ function ReportsPage() {
               </div>
             </div>
 
-            {/* ADVISORY BOX (FULL GREEN) */}
-            <div className="bg-emerald-600 rounded-[3rem] p-8 text-white shadow-2xl shadow-emerald-500/20 relative overflow-hidden">
-              <div className="relative z-10">
-                <h3 className="font-black uppercase text-[10px] tracking-widest mb-4 flex items-center gap-2">
-                  <FiTarget className="text-emerald-200" /> Health Check
-                </h3>
-                <p className="text-xs leading-relaxed font-medium text-emerald-50">
-                  Margin profit Anda saat ini berada di angka <b>{reports.summary.margin.toFixed(1)}%</b>. 
-                  <br /><br />
-                  Sistem menyarankan untuk menjaga rasio kas pada metode <b>Cash</b> tetap di atas 40% untuk menjamin kelancaran operasional harian.
-                </p>
-                <button className="mt-8 w-full py-4 bg-white text-emerald-600 rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-50 transition-all shadow-lg">
-                  Cetak Laporan Lengkap
-                </button>
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase tracking-widest mb-8 dark:text-white flex items-center gap-3">
+                <FiLayers className="text-emerald-500" /> Analisis Kategori
+              </h3>
+              <div className="space-y-4">
+                {Object.entries(reports.categoryAnalysis).map(([cat, data], i) => (
+                  <div key={i} className="flex justify-between items-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border dark:border-slate-700/50">
+                    <div>
+                      <p className="text-[9px] font-black text-emerald-500 uppercase">{cat}</p>
+                      <h4 className="text-sm font-black dark:text-white">{formatIDR(data.profit)}</h4>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400">{data.qty} pcs</p>
+                  </div>
+                ))}
               </div>
-              <FiTrendingUp className="absolute -bottom-10 -right-10 text-white/10 w-48 h-48" />
             </div>
           </div>
         </div>
@@ -255,23 +220,20 @@ function ReportsPage() {
   );
 }
 
-function StatCard({ title, value, sub, icon, color, highlight }) {
+function StatCard({ title, value, sub, icon, isPrimary }) {
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      className={`p-8 rounded-[2.5rem] border shadow-sm transition-all ${
-        highlight 
-        ? 'bg-emerald-600 border-emerald-500 shadow-emerald-500/20' 
-        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
-      }`}
-    >
-      <div className={`${highlight ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-500'} w-12 h-12 rounded-2xl flex items-center justify-center mb-6`}>
-        {React.cloneElement(icon, { size: 20 })}
+    <div className={`p-6 md:p-8 rounded-[2rem] border transition-all ${
+      isPrimary 
+      ? 'bg-emerald-600 border-emerald-500 text-white shadow-xl shadow-emerald-500/20' 
+      : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-800 dark:text-white'
+    }`}>
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 ${isPrimary ? 'bg-white/20' : 'bg-emerald-500/10'}`}>
+        {React.cloneElement(icon, { size: 22, className: isPrimary ? "text-white" : "text-emerald-500" })}
       </div>
-      <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${highlight ? 'text-emerald-100' : 'text-slate-400'}`}>{title}</p>
-      <h3 className={`text-2xl font-black tracking-tight ${highlight ? 'text-white' : 'dark:text-white'}`}>{value}</h3>
-      <p className={`text-[10px] font-bold mt-2 italic ${highlight ? 'text-emerald-200' : 'text-slate-500'}`}>{sub}</p>
-    </motion.div>
+      <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isPrimary ? 'text-emerald-100' : 'text-slate-400'}`}>{title}</p>
+      <h3 className="text-xl md:text-3xl font-black tracking-tighter truncate mb-2">{value}</h3>
+      <p className={`text-[10px] font-bold uppercase opacity-60 ${isPrimary ? 'text-emerald-100' : ''}`}>{sub}</p>
+    </div>
   );
 }
 

@@ -3,28 +3,34 @@ import { Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 
-// --- Import Hooks ---
+// --- Hooks & UI ---
 import useDarkMode from './hooks/useDarkMode';
-
-// --- Import Icons & Animation ---
-import { FaStore } from 'react-icons/fa'; 
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaStore } from 'react-icons/fa';
+import { 
+  FiHome, FiBox, FiActivity, FiShoppingCart, FiSettings 
+} from 'react-icons/fi';
 
-// --- Import Komponen Utama ---
+// --- Komponen & Pages ---
+import Sidebar from './components/Sidebar/Sidebar';
+import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import Register from './components/Register';
 import ResetPassword from './components/ResetPassword';
-import Dashboard from './components/Dashboard';
-import Sidebar from './components/Sidebar/Sidebar';
 
-// --- Import Pages ---
-// Sesuai gambar: folder 'products' dan 'settings'
 import ProductsPage from './pages/products/ProductsPage'; 
 import ReportsPage from './pages/ReportsPage';
-import TransactionsPage from './pages/TransactionsPage';
-
-// Update: Folder settings memiliki SettingsPage.jsx sebagai entry point utama
+import TransactionsPage from './pages/TransactionsPage'; 
 import SettingsPage from './pages/settings/SettingsPage'; 
+
+// Menu Items Inti - Sesuai Gambar & Sidebar Terbaru
+const menuItems = [
+  { id: 'dashboard', label: 'Beranda', icon: <FiHome />, path: '/dashboard' },
+  { id: 'produk', label: 'Produk', icon: <FiBox />, path: '/produk' },
+  { id: 'transaksi', label: 'Kasir', icon: <FiShoppingCart />, path: '/transaksi' },
+  { id: 'laporan', label: 'Laporan', icon: <FiActivity />, path: '/laporan' },
+  { id: 'settings', label: 'Setelan', icon: <FiSettings />, path: '/settings' },
+];
 
 function App() {
   const [darkMode, setDarkMode] = useDarkMode(); 
@@ -35,123 +41,101 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Memantau Status Auth Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      // Loading splash screen minimal 1 detik agar transisi smooth
-      const timer = setTimeout(() => setLoading(false), 1000);
+      // Loading screen minimalis
+      const timer = setTimeout(() => setLoading(false), 800);
       return () => clearTimeout(timer);
     });
     return () => unsubscribe();
   }, []);
 
-  // Reset state cropping jika pindah halaman
-  useEffect(() => {
-    setIsCropping(false);
-  }, [location.pathname]);
-
   const handleLogout = async () => {
-    if (window.confirm("Apakah Anda yakin ingin keluar?")) {
+    if (window.confirm("Keluar dari Warung Digital?")) {
       try {
         await signOut(auth);
-        // Pertahankan email di local storage untuk auto-fill login berikutnya jika perlu
-        const savedEmail = localStorage.getItem("warung_email");
-        localStorage.clear(); 
-        if (savedEmail) localStorage.setItem("warung_email", savedEmail);
-        
-        navigate('/login', { replace: true });
+        navigate('/login');
       } catch (error) {
-        console.error("Logout error:", error);
+        console.error("Error signing out: ", error);
       }
     }
   };
 
-  // Logika tampilan UI
-  const authPaths = ['/login', '/register', '/reset-password'];
-  const isAuthPage = authPaths.includes(location.pathname);
-  const shouldHideUI = !user || isAuthPage || isCropping;
+  // Sembunyikan Sidebar jika di halaman Auth atau saat sedang Crop Foto
+  const shouldHideUI = !user || ['/login', '/register', '/reset-password'].includes(location.pathname) || isCropping;
 
-  // --- SPLASH SCREEN LOADING ---
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[999] bg-emerald-500 flex items-center justify-center text-white">
+      <div className="fixed inset-0 bg-[#020617] flex items-center justify-center text-white z-[999]">
         <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: [0.8, 1.1, 1], opacity: 1 }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-          className="flex flex-col items-center gap-4"
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          className="text-center"
         >
-          <div className="relative flex items-center justify-center">
-            <div className="w-20 h-20 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <FaStore className="text-3xl absolute" />
+          <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
+            <FaStore className="text-3xl text-white animate-pulse" />
           </div>
-          <div className="text-center">
-            <p className="font-black uppercase tracking-[0.3em] text-xs">Warung Digital</p>
-            <p className="text-[10px] opacity-70 mt-1 uppercase">Menyiapkan Data...</p>
-          </div>
+          <h1 className="text-xs font-black tracking-[0.3em] uppercase text-emerald-500">Warung Digital</h1>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-300 ${darkMode ? 'dark bg-[#020617]' : 'bg-[#f8fafc]'}`}>
-      <div className="flex flex-col md:flex-row min-h-screen relative">
+    <div className={`min-h-screen ${darkMode ? 'dark bg-[#020617]' : 'bg-[#fcfcfc]'} transition-colors duration-500`}>
+      <div className="flex flex-col md:flex-row min-h-screen">
         
-        {/* SIDEBAR NAVIGATION */}
+        {/* SIDEBAR - Mengirim fungsi logout dan data user */}
         {!shouldHideUI && (
           <Sidebar 
-            darkMode={darkMode} 
-            setDarkMode={setDarkMode} 
+            menuItems={menuItems} 
             user={user} 
-            onLogout={handleLogout}
+            onLogout={handleLogout} 
           />
         )}
 
         {/* MAIN CONTENT AREA */}
-        <main className={`flex-1 w-full transition-all duration-500 ${!shouldHideUI ? 'md:pl-0 pb-24 md:pb-0' : ''}`}> 
+        <main className={`flex-1 w-full overflow-x-hidden ${!shouldHideUI ? 'pb-20 md:pb-0' : ''}`}>
           <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              
-              {/* --- PUBLIC / AUTH ROUTES --- */}
-              <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-              <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Routes location={location}>
+                {/* Auth Routes */}
+                <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+                <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
-              {/* --- PROTECTED ROUTES (Hanya untuk User Login) --- */}
-              <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-              <Route path="/transaksi" element={user ? <TransactionsPage /> : <Navigate to="/login" />} />
-              
-              {/* Produk - Folder: pages/products/ */}
-              <Route 
-                path="/produk" 
-                element={user ? <ProductsPage setIsCropping={setIsCropping} /> : <Navigate to="/login" />} 
-              />
-              
-              <Route path="/laporan" element={user ? <ReportsPage /> : <Navigate to="/login" />} />
-              
-              {/* Pengaturan - Folder: pages/settings/ */}
-              <Route 
-                path="/pengaturan/*" // Menggunakan wildcard agar sub-route settings bekerja
-                element={user ? (
-                  <SettingsPage 
-                    user={user} 
-                    onLogout={handleLogout} 
-                    darkMode={darkMode} 
-                    setDarkMode={setDarkMode} 
-                    setIsCropping={setIsCropping} 
-                  />
-                ) : <Navigate to="/login" />} 
-              />
+                {/* Main App Routes */}
+                <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+                <Route path="/produk" element={user ? <ProductsPage setIsCropping={setIsCropping} /> : <Navigate to="/login" />} />
+                <Route path="/transaksi" element={user ? <TransactionsPage /> : <Navigate to="/login" />} />
+                <Route path="/laporan" element={user ? <ReportsPage /> : <Navigate to="/login" />} />
+                
+                {/* Settings Route - Menggunakan path /settings agar sinkron dengan sidebar */}
+                <Route path="/settings/*" element={
+                  user ? (
+                    <SettingsPage 
+                      user={user} 
+                      onLogout={handleLogout} 
+                      darkMode={darkMode} 
+                      setDarkMode={setDarkMode} 
+                      setIsCropping={setIsCropping} 
+                    />
+                  ) : <Navigate to="/login" />
+                } />
 
-              {/* DEFAULT REDIRECTS */}
-              <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
-              <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} /> 
-            </Routes>
+                {/* Default Redirect */}
+                <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+              </Routes>
+            </motion.div>
           </AnimatePresence>
         </main>
-
       </div>
     </div>
   );
