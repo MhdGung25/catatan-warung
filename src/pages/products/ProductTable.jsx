@@ -3,7 +3,7 @@ import { FiEdit3, FiTrash2, FiAlertCircle, FiTag, FiLayers } from 'react-icons/f
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ProductTable({ 
-  products = [], // Default ke array kosong agar tidak error .map
+  products = [], 
   onEdit, 
   onDelete, 
   lowStockThreshold = 5,
@@ -11,7 +11,6 @@ export default function ProductTable({
   setSelectedItems
 }) {
   
-  // Fungsi Select All
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
       setSelectedItems(products.map(p => p.code));
@@ -20,7 +19,6 @@ export default function ProductTable({
     }
   };
 
-  // Fungsi Select Per Item
   const toggleSelectItem = (code) => {
     setSelectedItems(prev => 
       prev.includes(code) 
@@ -31,7 +29,7 @@ export default function ProductTable({
 
   return (
     <div className="w-full">
-      {/* --- TAMPILAN DESKTOP (TABLE) --- */}
+      {/* DESKTOP VIEW */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -54,7 +52,6 @@ export default function ProductTable({
           <tbody className="divide-y dark:divide-slate-800">
             <AnimatePresence mode='popLayout'>
               {products.map((p) => {
-                // Pastikan stock & price adalah number untuk pengecekan isLow
                 const stockVal = Number(p.stock) || 0;
                 const priceVal = Number(p.price) || 0;
                 const isLow = stockVal <= lowStockThreshold;
@@ -101,13 +98,13 @@ export default function ProductTable({
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black ${isLow ? 'bg-rose-500 text-white animate-pulse' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600'}`}>
                           {stockVal} Unit
                         </span>
-                        {isLow && <span className="text-[7px] text-rose-500 font-black uppercase">Restock!</span>}
+                        {isLow && <span className="text-[7px] text-rose-500 font-black uppercase tracking-tighter">Restock!</span>}
                       </div>
                     </td>
                     <td className="p-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => onEdit(p)} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"><FiEdit3 size={16}/></button>
-                        <button onClick={() => onDelete(p.code)} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all"><FiTrash2 size={16}/></button>
+                        <button onClick={() => onEdit(p)} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all shadow-sm"><FiEdit3 size={16}/></button>
+                        <button onClick={() => onDelete(p.code)} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all shadow-sm"><FiTrash2 size={16}/></button>
                       </div>
                     </td>
                   </motion.tr>
@@ -118,8 +115,8 @@ export default function ProductTable({
         </table>
       </div>
 
-      {/* --- TAMPILAN MOBILE (GRID CARDS) --- */}
-      <div className="md:hidden flex flex-col gap-4 p-4 pb-32">
+      {/* MOBILE VIEW */}
+      <div className="md:hidden flex flex-col gap-4 p-4 pb-10">
         <AnimatePresence mode='popLayout'>
           {products.map((p) => {
             const stockVal = Number(p.stock) || 0;
@@ -136,11 +133,10 @@ export default function ProductTable({
                 exit={{ opacity: 0, scale: 0.95 }}
                 className={`relative p-5 rounded-[2.5rem] border transition-all ${
                   isSelected 
-                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500' 
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500 shadow-lg shadow-emerald-500/10' 
                     : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'
                 }`}
               >
-                {/* Checkbox Floating */}
                 <div className="absolute top-6 right-6">
                   <input 
                     type="checkbox" 
@@ -150,7 +146,6 @@ export default function ProductTable({
                   />
                 </div>
 
-                {/* Info Utama */}
                 <div className="flex items-center gap-4 mb-5">
                   <div className={`w-14 h-14 rounded-[1.2rem] flex items-center justify-center font-black text-xl text-white shadow-lg ${isLow ? 'bg-rose-500 shadow-rose-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>
                     {p.name ? p.name.charAt(0).toUpperCase() : '?'}
@@ -159,27 +154,24 @@ export default function ProductTable({
                     <h3 className="font-black text-slate-800 dark:text-white uppercase text-sm tracking-tight leading-tight mb-1">
                       {p.name}
                     </h3>
-                    <div className="flex items-center gap-2">
-                       <span className="text-[8px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                          {p.code}
-                       </span>
-                    </div>
+                    <span className="text-[8px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase tracking-widest">
+                      {p.code}
+                    </span>
                   </div>
                 </div>
 
-                {/* Grid Data */}
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-transparent dark:border-slate-800">
-                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-                      <FiTag className="text-emerald-500"/> Harga Jual
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1.5 tracking-widest">
+                      <FiTag className="text-emerald-500"/> Harga
                     </p>
                     <p className="text-[13px] font-black dark:text-white text-slate-800">
                       Rp {priceVal.toLocaleString('id-ID')}
                     </p>
                   </div>
                   <div className={`p-4 rounded-2xl border ${isLow ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20'}`}>
-                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-                      <FiLayers className={isLow ? 'text-rose-500' : 'text-emerald-500'}/> Stok Sisa
+                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1.5 tracking-widest">
+                      <FiLayers className={isLow ? 'text-rose-500' : 'text-emerald-500'}/> Stok
                     </p>
                     <p className={`text-[13px] font-black ${isLow ? 'text-rose-600' : 'text-emerald-600'}`}>
                       {stockVal} <span className="text-[9px]">Unit</span>
@@ -187,13 +179,12 @@ export default function ProductTable({
                   </div>
                 </div>
 
-                {/* Button Actions */}
                 <div className="flex gap-2">
                   <button 
                     onClick={() => onEdit(p)}
                     className="flex-1 py-4 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <FiEdit3 size={14}/> Edit Barang
+                    <FiEdit3 size={14}/> Edit
                   </button>
                   <button 
                     onClick={() => onDelete(p.code)}
@@ -206,7 +197,7 @@ export default function ProductTable({
                 {isLow && (
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-rose-500 text-white px-4 py-1 rounded-full shadow-lg flex items-center gap-2 border-2 border-white dark:border-slate-900 animate-bounce">
                     <FiAlertCircle size={10}/>
-                    <span className="text-[7px] font-black uppercase tracking-tighter">Stok Hampir Habis!</span>
+                    <span className="text-[7px] font-black uppercase tracking-tighter">Restock Sekarang!</span>
                   </div>
                 )}
               </motion.div>

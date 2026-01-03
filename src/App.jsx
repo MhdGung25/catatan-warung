@@ -4,7 +4,6 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 
 // --- Hooks & UI ---
-import useDarkMode from './hooks/useDarkMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaStore } from 'react-icons/fa';
 import { 
@@ -13,17 +12,16 @@ import {
 
 // --- Komponen & Pages ---
 import Sidebar from './components/Sidebar/Sidebar';
-import Dashboard from './components/Dashboard';
+import Dashboard from './components/Dashboard'; // Sesuaikan jika namanya DashboardPage
 import Login from './components/Login';
 import Register from './components/Register';
 import ResetPassword from './components/ResetPassword';
 
 import ProductsPage from './pages/products/ProductsPage'; 
 import ReportsPage from './pages/ReportsPage';
-import TransactionsPage from './pages/TransactionsPage'; 
+import CashierPage from './pages/CashierPage'; // Pastikan nama file sesuai
 import SettingsPage from './pages/settings/SettingsPage'; 
 
-// Menu Items Inti - Sesuai Gambar & Sidebar Terbaru
 const menuItems = [
   { id: 'dashboard', label: 'Beranda', icon: <FiHome />, path: '/dashboard' },
   { id: 'produk', label: 'Produk', icon: <FiBox />, path: '/produk' },
@@ -33,7 +31,10 @@ const menuItems = [
 ];
 
 function App() {
-  const [darkMode, setDarkMode] = useDarkMode(); 
+  // --- STATE TEMA ---
+  const [darkMode, setDarkMode] = useState(false);
+  
+  // --- STATE AUTH & UI ---
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isCropping, setIsCropping] = useState(false); 
@@ -41,10 +42,36 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // 1. Logic Inisialisasi Tema
+  useEffect(() => {
+    const applyInitialTheme = () => {
+      const savedTheme = localStorage.getItem("themeSetting") || "system";
+      const root = window.document.documentElement;
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      
+      let isDark = false;
+      if (savedTheme === "system") {
+        isDark = mediaQuery.matches;
+      } else {
+        isDark = savedTheme === "dark";
+      }
+      
+      root.classList.toggle("dark", isDark);
+      setDarkMode(isDark);
+    };
+
+    applyInitialTheme();
+    
+    // Sinkronisasi tema antar tab
+    window.addEventListener('storage', applyInitialTheme);
+    return () => window.removeEventListener('storage', applyInitialTheme);
+  }, []);
+
+  // 2. Logic Auth Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      // Loading screen minimalis
+      // Memberikan sedikit buffer waktu untuk loading screen yang mulus
       const timer = setTimeout(() => setLoading(false), 800);
       return () => clearTimeout(timer);
     });
@@ -62,17 +89,14 @@ function App() {
     }
   };
 
-  // Sembunyikan Sidebar jika di halaman Auth atau saat sedang Crop Foto
+  // Logic untuk menyembunyikan Sidebar di halaman Login/Auth atau saat Crop Foto
   const shouldHideUI = !user || ['/login', '/register', '/reset-password'].includes(location.pathname) || isCropping;
 
+  // --- LOADING SCREEN ---
   if (loading) {
     return (
       <div className="fixed inset-0 bg-[#020617] flex items-center justify-center text-white z-[999]">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }} 
-          animate={{ opacity: 1, scale: 1 }} 
-          className="text-center"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
           <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
             <FaStore className="text-3xl text-white animate-pulse" />
           </div>
@@ -83,10 +107,10 @@ function App() {
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-[#020617]' : 'bg-[#fcfcfc]'} transition-colors duration-500`}>
+    <div className={`min-h-screen ${darkMode ? 'dark bg-[#0a0f1e]' : 'bg-[#fcfcfc]'} transition-colors duration-500`}>
       <div className="flex flex-col md:flex-row min-h-screen">
         
-        {/* SIDEBAR - Mengirim fungsi logout dan data user */}
+        {/* SIDEBAR NAVIGATION */}
         {!shouldHideUI && (
           <Sidebar 
             menuItems={menuItems} 
@@ -106,18 +130,20 @@ function App() {
               transition={{ duration: 0.2 }}
             >
               <Routes location={location}>
-                {/* Auth Routes */}
+                {/* Public / Auth Routes */}
                 <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
                 <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* Main App Routes */}
+                {/* Protected Routes (Hanya untuk user yang login) */}
                 <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
                 <Route path="/produk" element={user ? <ProductsPage setIsCropping={setIsCropping} /> : <Navigate to="/login" />} />
-                <Route path="/transaksi" element={user ? <TransactionsPage /> : <Navigate to="/login" />} />
+                
+                {/* Note: Path '/transaksi' di menuItems diarahkan ke CashierPage */}
+                <Route path="/transaksi" element={user ? <CashierPage /> : <Navigate to="/login" />} />
+                
                 <Route path="/laporan" element={user ? <ReportsPage /> : <Navigate to="/login" />} />
                 
-                {/* Settings Route - Menggunakan path /settings agar sinkron dengan sidebar */}
                 <Route path="/settings/*" element={
                   user ? (
                     <SettingsPage 
